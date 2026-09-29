@@ -28,6 +28,10 @@ APersonalCharacter::APersonalCharacter()
 	GetCharacterMovement()->bConstrainToPlane = true;
 	GetCharacterMovement()->bSnapToPlaneAtStart = true;
 
+	// Click-to-move path following must generate acceleration, otherwise the
+	// anim BP (which gates ShouldMove on acceleration) stays in idle while sliding
+	GetCharacterMovement()->GetNavMovementProperties()->bUseAccelerationForPaths = true;
+
 	// Create the camera boom component
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 

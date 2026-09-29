@@ -16,12 +16,12 @@ Future ideas (not yet built): multiple cities/languages, mission/story framework
 progress (save game), spaced-repetition practice, helper reliance scoring, optional typed/voice input.
 
 ## Roadmap
-- **Phase 1 (current)** — core loop vertical slice: greybox Paris street, NPC conversations, helper
+- **Phase 1 (done)** — core loop vertical slice: greybox Paris street, NPC conversations, helper
   translation, word-tile replies, grader, cover meter, cover-blown → practice drill.
-- **Phase 2** — mission/story framework (objectives, chained conversations), `USaveGame` persistence
-  of skill progress, city/language selection menu.
-- **Phase 3** — stylized art pass (toon/flat shading, stylized characters, Paris landmarks, UI skin).
-- **Phase 4** — more cities/languages, content tooling.
+- **Phase 2 (current, see `docs/Phase2_Plan.md`)** — branching missions, 4 cities (Paris/French, Madrid/Spanish,
+  Tokyo/Japanese, Rome/Italian), main menu + city select, minimal save, Slate conversation editor tool.
+- **Phase 3** — stylized art pass (toon/flat shading, stylized characters, landmarks, UI skin, camera occlusion fade).
+- **Phase 4** — more cities/languages, spaced-repetition practice, phrasebook, helper-reliance scoring.
 
 ## Code layout & conventions
 - New gameplay code lives in `Source/Personal/LinguaSpy/`:
@@ -37,6 +37,11 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   Source files are UTF-8; accents matter (grader treats `café` ≠ `cafe`).
 - Keep logic in C++; Blueprints are thin subclasses for assets/layout.
 - `Source/Personal/Variant_Strategy` and `Variant_TwinStick` are unused template leftovers (kept for now).
+
+## Human-in-the-loop
+- `EDITOR_TODO.md` (repo root) is the running list of things the user must do by hand in the editor
+  (recompiles, playtests, manual editor edits Claude couldn't do, pending decisions). Keep it concise and current:
+  add items when you hand something off, move them to Done when confirmed.
 
 ## Gameplay wiring (important)
 - The template's `/Game/TopDown/Blueprints/BP_TopDown*` are **pure Blueprint** (parents: Character /
