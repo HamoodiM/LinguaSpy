@@ -6,6 +6,8 @@
 #include "Components/Button.h"
 #include "Components/ButtonSlot.h"
 #include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
+#include "Components/VerticalBoxSlot.h"
 
 void UWordTileWidget::NativeOnInitialized()
 {
@@ -17,11 +19,26 @@ void UWordTileWidget::NativeOnInitialized()
 		TileButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("TileButton"));
 		WidgetTree->RootWidget = TileButton;
 
-		TileText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("TileText"));
-		LinguaSpyStyle::StyleText(TileText, 20, LinguaSpyStyle::TileText, true);
-		if (UButtonSlot* ButtonSlot = Cast<UButtonSlot>(TileButton->AddChild(TileText)))
+		UVerticalBox* Stack = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("Stack"));
+		if (UButtonSlot* ButtonSlot = Cast<UButtonSlot>(TileButton->AddChild(Stack)))
 		{
 			ButtonSlot->SetPadding(FMargin(14.f, 6.f));
+		}
+
+		TileText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("TileText"));
+		LinguaSpyStyle::StyleText(TileText, 20, LinguaSpyStyle::TileText, true);
+		TileText->SetJustification(ETextJustify::Center);
+		if (UVerticalBoxSlot* TextSlot = Stack->AddChildToVerticalBox(TileText))
+		{
+			TextSlot->SetHorizontalAlignment(HAlign_Center);
+		}
+
+		ReadingText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("ReadingText"));
+		LinguaSpyStyle::StyleText(ReadingText, 12, LinguaSpyStyle::TileText);
+		ReadingText->SetJustification(ETextJustify::Center);
+		if (UVerticalBoxSlot* ReadingSlot = Stack->AddChildToVerticalBox(ReadingText))
+		{
+			ReadingSlot->SetHorizontalAlignment(HAlign_Center);
 		}
 	}
 
@@ -29,6 +46,7 @@ void UWordTileWidget::NativeOnInitialized()
 	{
 		TileButton->OnClicked.AddDynamic(this, &UWordTileWidget::HandleClicked);
 	}
+	SetReading(FString());
 	SetTileState(EWordTileState::Neutral);
 }
 
@@ -38,6 +56,23 @@ void UWordTileWidget::SetWord(const FString& InWord)
 	if (TileText)
 	{
 		TileText->SetText(FText::FromString(Word));
+	}
+}
+
+void UWordTileWidget::SetReading(const FString& InReading)
+{
+	if (ReadingText)
+	{
+		ReadingText->SetText(FText::FromString(InReading));
+		ReadingText->SetVisibility(InReading.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible);
+	}
+}
+
+void UWordTileWidget::SetChoiceStyle()
+{
+	if (TileText)
+	{
+		LinguaSpyStyle::StyleText(TileText, 17, LinguaSpyStyle::TileText, true);
 	}
 }
 

@@ -40,6 +40,13 @@ public:
 	UFUNCTION(BlueprintPure, Category="Tile")
 	const FString& GetWord() const { return Word; }
 
+	/** Optional small second line (e.g. romaji). Empty hides it. */
+	UFUNCTION(BlueprintCallable, Category="Tile")
+	void SetReading(const FString& InReading);
+
+	/** Smaller, wider variant used for choice buttons. */
+	void SetChoiceStyle();
+
 	UFUNCTION(BlueprintCallable, Category="Tile")
 	void SetTileState(EWordTileState NewState);
 
@@ -56,6 +63,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category="Tile", meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> TileText;
+
+	UPROPERTY(BlueprintReadOnly, Category="Tile", meta=(BindWidgetOptional))
+	TObjectPtr<UTextBlock> ReadingText;
 
 	virtual void NativeOnInitialized() override;
 

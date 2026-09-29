@@ -39,7 +39,9 @@ public class Personal : ModuleRules
 			"Personal/LinguaSpy/Dialogue",
 			"Personal/LinguaSpy/Cover",
 			"Personal/LinguaSpy/Interaction",
-			"Personal/LinguaSpy/UI"
+			"Personal/LinguaSpy/UI",
+			"Personal/LinguaSpy/Mission",
+			"Personal/LinguaSpy/Save"
 		});
 
 		// Uncomment if you are using Slate UI

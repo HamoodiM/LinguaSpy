@@ -14,6 +14,7 @@ class UPathFollowingComponent;
 class ANpcCharacter;
 class UConversationWidget;
 class USpyHUDWidget;
+class UPauseMenuWidget;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
@@ -78,6 +79,13 @@ protected:
 	UPROPERTY(Transient)
 	TObjectPtr<USpyHUDWidget> HUDWidget;
 
+	/** LinguaSpy: pause menu class (defaults to the code-built layout) */
+	UPROPERTY(EditAnywhere, Category="LinguaSpy")
+	TSubclassOf<UPauseMenuWidget> PauseMenuClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UPauseMenuWidget> PauseMenu;
+
 	/** NPC we are walking towards to talk to */
 	TWeakObjectPtr<ANpcCharacter> PendingTalkTarget;
 
@@ -106,6 +114,10 @@ protected:
 
 	UFUNCTION()
 	void HandleConversationEnded();
+
+	/** Opens/closes the pause menu (P or Escape) */
+	UFUNCTION()
+	void TogglePause();
 	
 	/** Input handlers */
 	void OnInputStarted();

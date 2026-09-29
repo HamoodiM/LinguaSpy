@@ -11,6 +11,10 @@ namespace
 		case TEXT(','): case TEXT('.'): case TEXT('!'): case TEXT('?'):
 		case TEXT(';'): case TEXT(':'): case TEXT('"'):
 		case 0x00AB: /* « */ case 0x00BB: /* » */ case 0x00BF: /* ¿ */ case 0x00A1: /* ¡ */
+		// Japanese / full-width punctuation
+		case 0x3002: /* 。 */ case 0x3001: /* 、 */ case 0xFF01: /* ！ */ case 0xFF1F: /* ？ */
+		case 0x300C: /* 「 */ case 0x300D: /* 」 */ case 0x3000: /* full-width space */ case 0xFF0C: /* ， */
+		case 0x2026: /* … */
 			return true;
 		default:
 			return FChar::IsWhitespace(C);
@@ -82,17 +86,8 @@ FGradeResult USentenceGrader::Grade(const FWordTileChallenge& Challenge, const T
 	return Result;
 }
 
-FString USentenceGrader::JoinTokens(const TArray<FString>& Tokens)
+FString USentenceGrader::JoinTokens(const TArray<FString>& Tokens, bool bUseSpaces)
 {
-	FString Out;
-	for (const FString& Token : Tokens)
-	{
-		// French-style: no space after an elided apostrophe (e.g. "s'" + "il")
-		if (!Out.IsEmpty() && !Out.EndsWith(TEXT("'")) && !Out.EndsWith(TEXT("’")))
-		{
-			Out += TEXT(" ");
-		}
-		Out += Token;
-	}
-	return Out;
+	// Convention: elided words are single tiles ("s'il", "d'acqua"), so joining is just spaces (or nothing)
+	return FString::Join(Tokens, bUseSpaces ? TEXT(" ") : TEXT(""));
 }

@@ -1,4 +1,4 @@
-// LinguaSpy - conversation panel: NPC line, helper translation, word-tile answer builder
+// LinguaSpy - conversation panel: NPC line, helper translation, choices, word-tile answer builder
 
 #pragma once
 
@@ -15,9 +15,11 @@ class UWrapBox;
 class UWidget;
 class UWordTileWidget;
 class ANpcCharacter;
+class ULanguagePackAsset;
+class ULinguaSpySaveSubsystem;
 
 /**
- *  Conversation UI. Listens to UConversationSubsystem and lets the player build replies from tiles.
+ *  Conversation UI. Listens to UConversationSubsystem and lets the player pick choices and build replies from tiles.
  *  Builds a default layout in C++; a WBP subclass may supply its own widgets with the same names.
  */
 UCLASS()
@@ -40,8 +42,16 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> NativeLineText;
 
+	/** Romanized reading of the NPC line (only for languages with readings). */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UTextBlock> ReadingLineText;
+
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> HelperText;
+
+	/** Holds one button per option at a PlayerChoice node. */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UWrapBox> ChoiceBox;
 
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UWidget> ChallengePanel;
@@ -60,6 +70,9 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> HelperToggleButton;
+
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UButton> ReadingToggleButton;
 
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> ClearButton;
@@ -83,6 +96,7 @@ private:
 	UButton* MakeButton(const FText& Label, const FName& Name);
 
 	UConversationSubsystem* GetConversationSubsystem() const;
+	ULinguaSpySaveSubsystem* GetSaveSubsystem() const;
 
 	UFUNCTION()
 	void HandleConversationStarted(ANpcCharacter* Npc);
@@ -94,6 +108,9 @@ private:
 	void HandleNodeEntered(const FConversationNode& Node, EConversationMode Mode);
 
 	UFUNCTION()
+	void HandleChallengeReady(const FWordTileChallenge& Challenge);
+
+	UFUNCTION()
 	void HandleAnswerGraded(const FGradeResult& Result, const FString& ModelAnswer);
 
 	UFUNCTION()
@@ -103,7 +120,13 @@ private:
 	void HandleTileClicked(UWordTileWidget* Tile);
 
 	UFUNCTION()
+	void HandleChoiceClicked(UWordTileWidget* ChoiceButton);
+
+	UFUNCTION()
 	void HandleHelperToggle();
+
+	UFUNCTION()
+	void HandleReadingToggle();
 
 	UFUNCTION()
 	void HandleClear();
@@ -118,7 +141,13 @@ private:
 	void HandleLeave();
 
 	void SetButtons(bool bShowSubmit, bool bShowContinue);
-	void UpdateHelperVisibility();
+	void ClearTiles();
+	void ClearChoices();
+	void RefreshHelperAndReadings();
+	void ApplyNativeFont(UTextBlock* Text, int32 Size) const;
+
+	bool IsHelperEnabled() const;
+	bool ShouldShowReadings() const;
 
 	UPROPERTY()
 	TArray<TObjectPtr<UWordTileWidget>> AnswerTiles;
@@ -126,7 +155,15 @@ private:
 	UPROPERTY()
 	TArray<TObjectPtr<UWordTileWidget>> BankTiles;
 
+	/** Choice button -> choice index at the current node. */
+	UPROPERTY()
+	TMap<TObjectPtr<UWordTileWidget>, int32> ChoiceButtons;
+
+	UPROPERTY()
+	TObjectPtr<ULanguagePackAsset> ActiveLanguage;
+
 	FText CurrentHelperLine;
-	bool bHelperHidden = false;
+	FText CurrentReadingLine;
+	FWordTileChallenge CurrentChallenge;
 	bool bTilesLocked = false;
 };

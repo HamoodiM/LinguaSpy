@@ -1,10 +1,11 @@
-// LinguaSpy - conversation panel: NPC line, helper translation, word-tile answer builder
+// LinguaSpy - conversation panel: NPC line, helper translation, choices, word-tile answer builder
 
 #include "ConversationWidget.h"
 #include "WordTileWidget.h"
 #include "LinguaSpyStyle.h"
+#include "LanguagePackAsset.h"
+#include "LinguaSpySaveSubsystem.h"
 #include "NpcCharacter.h"
-#include "SentenceGrader.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -19,6 +20,8 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Components/WrapBox.h"
+#include "Engine/Font.h"
+#include "Engine/GameInstance.h"
 #include "Engine/World.h"
 
 #define LOCTEXT_NAMESPACE "LinguaSpyConversation"
@@ -36,11 +39,12 @@ void UConversationWidget::NativeOnInitialized()
 		BuildDefaultLayout();
 	}
 
-	if (HelperToggleButton) { HelperToggleButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleHelperToggle); }
-	if (ClearButton)        { ClearButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleClear); }
-	if (SubmitButton)       { SubmitButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleSubmit); }
-	if (ContinueButton)     { ContinueButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleContinue); }
-	if (LeaveButton)        { LeaveButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleLeave); }
+	if (HelperToggleButton)  { HelperToggleButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleHelperToggle); }
+	if (ReadingToggleButton) { ReadingToggleButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleReadingToggle); }
+	if (ClearButton)         { ClearButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleClear); }
+	if (SubmitButton)        { SubmitButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleSubmit); }
+	if (ContinueButton)      { ContinueButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleContinue); }
+	if (LeaveButton)         { LeaveButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleLeave); }
 
 	SetVisibility(ESlateVisibility::Collapsed);
 }
@@ -54,6 +58,7 @@ void UConversationWidget::NativeConstruct()
 		Conversations->OnConversationStarted.AddUniqueDynamic(this, &UConversationWidget::HandleConversationStarted);
 		Conversations->OnConversationEnded.AddUniqueDynamic(this, &UConversationWidget::HandleConversationEnded);
 		Conversations->OnNodeEntered.AddUniqueDynamic(this, &UConversationWidget::HandleNodeEntered);
+		Conversations->OnChallengeReady.AddUniqueDynamic(this, &UConversationWidget::HandleChallengeReady);
 		Conversations->OnAnswerGraded.AddUniqueDynamic(this, &UConversationWidget::HandleAnswerGraded);
 		Conversations->OnCoverBlown.AddUniqueDynamic(this, &UConversationWidget::HandleCoverBlown);
 	}
@@ -66,6 +71,7 @@ void UConversationWidget::NativeDestruct()
 		Conversations->OnConversationStarted.RemoveAll(this);
 		Conversations->OnConversationEnded.RemoveAll(this);
 		Conversations->OnNodeEntered.RemoveAll(this);
+		Conversations->OnChallengeReady.RemoveAll(this);
 		Conversations->OnAnswerGraded.RemoveAll(this);
 		Conversations->OnCoverBlown.RemoveAll(this);
 	}
@@ -76,6 +82,24 @@ UConversationSubsystem* UConversationWidget::GetConversationSubsystem() const
 {
 	const UWorld* World = GetWorld();
 	return World ? World->GetSubsystem<UConversationSubsystem>() : nullptr;
+}
+
+ULinguaSpySaveSubsystem* UConversationWidget::GetSaveSubsystem() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	return GameInstance ? GameInstance->GetSubsystem<ULinguaSpySaveSubsystem>() : nullptr;
+}
+
+bool UConversationWidget::IsHelperEnabled() const
+{
+	const ULinguaSpySaveSubsystem* Save = GetSaveSubsystem();
+	return !Save || Save->GetSettings().bHelperEnabled;
+}
+
+bool UConversationWidget::ShouldShowReadings() const
+{
+	const ULinguaSpySaveSubsystem* Save = GetSaveSubsystem();
+	return ActiveLanguage && ActiveLanguage->bHasReadings && (!Save || Save->GetSettings().bShowReadings);
 }
 
 UButton* UConversationWidget::MakeButton(const FText& Label, const FName& Name)
@@ -142,10 +166,19 @@ void UConversationWidget::BuildDefaultLayout()
 	NativeLineText->SetAutoWrapText(true);
 	AddRow(NativeLineText, 8.f);
 
+	ReadingLineText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("ReadingLineText"));
+	StyleText(ReadingLineText, 17, TextMuted);
+	ReadingLineText->SetAutoWrapText(true);
+	AddRow(ReadingLineText, 2.f);
+
 	HelperText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("HelperText"));
 	StyleText(HelperText, 19, TextHelper);
 	HelperText->SetAutoWrapText(true);
 	AddRow(HelperText, 4.f);
+
+	ChoiceBox = WidgetTree->ConstructWidget<UWrapBox>(UWrapBox::StaticClass(), TEXT("ChoiceBox"));
+	ChoiceBox->SetInnerSlotPadding(FVector2D(10.f, 10.f));
+	AddRow(ChoiceBox, 14.f);
 
 	// Challenge area
 	UVerticalBox* Challenge = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("ChallengePanel"));
@@ -194,6 +227,8 @@ void UConversationWidget::BuildDefaultLayout()
 	};
 	HelperToggleButton = MakeButton(LOCTEXT("HelperToggle", "Helper"), TEXT("HelperToggleButton"));
 	AddButton(HelperToggleButton);
+	ReadingToggleButton = MakeButton(LOCTEXT("ReadingToggle", "Romaji"), TEXT("ReadingToggleButton"));
+	AddButton(ReadingToggleButton);
 	LeaveButton = MakeButton(LOCTEXT("Leave", "Walk away"), TEXT("LeaveButton"));
 	AddButton(LeaveButton);
 	USpacer* ButtonSpacer = WidgetTree->ConstructWidget<USpacer>(USpacer::StaticClass());
@@ -210,22 +245,64 @@ void UConversationWidget::BuildDefaultLayout()
 	AddRow(Buttons, 16.f);
 }
 
+void UConversationWidget::ApplyNativeFont(UTextBlock* Text, int32 Size) const
+{
+	if (!Text || !ActiveLanguage || ActiveLanguage->NativeFont.IsNull())
+	{
+		return;
+	}
+	if (UFont* Font = ActiveLanguage->NativeFont.LoadSynchronous())
+	{
+		FSlateFontInfo Info = Text->GetFont();
+		Info.FontObject = Font;
+		Info.TypefaceFontName = NAME_None;
+		Info.Size = Size;
+		Text->SetFont(Info);
+	}
+}
+
 void UConversationWidget::HandleConversationStarted(ANpcCharacter* Npc)
 {
+	const UConversationSubsystem* Conversations = GetConversationSubsystem();
+	ActiveLanguage = Conversations ? Conversations->GetActiveLanguage() : nullptr;
+
 	if (SpeakerText)
 	{
 		SpeakerText->SetText(Npc ? Npc->GetDisplayName() : FText::GetEmpty());
 	}
+	if (ReadingToggleButton)
+	{
+		ReadingToggleButton->SetVisibility(ActiveLanguage && ActiveLanguage->bHasReadings ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+	ApplyNativeFont(NativeLineText, 30);
 	SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 }
 
 void UConversationWidget::HandleConversationEnded()
 {
 	SetVisibility(ESlateVisibility::Collapsed);
+	ClearTiles();
+	ClearChoices();
+	ActiveLanguage = nullptr;
+}
+
+void UConversationWidget::ClearTiles()
+{
 	AnswerTiles.Reset();
 	BankTiles.Reset();
 	if (AnswerRow) { AnswerRow->ClearChildren(); }
 	if (TileBank) { TileBank->ClearChildren(); }
+	bTilesLocked = false;
+}
+
+void UConversationWidget::ClearChoices()
+{
+	ChoiceButtons.Reset();
+	if (ChoiceBox)
+	{
+		ChoiceBox->ClearChildren();
+		ChoiceBox->SetVisibility(ESlateVisibility::Collapsed);
+	}
 }
 
 void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConversationMode Mode)
@@ -235,7 +312,8 @@ void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConv
 		NativeLineText->SetText(Node.NativeLine);
 	}
 	CurrentHelperLine = Node.HelperTranslation;
-	UpdateHelperVisibility();
+	CurrentReadingLine = Node.NativeLineReading;
+	RefreshHelperAndReadings();
 
 	if (ModeText)
 	{
@@ -249,41 +327,94 @@ void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConv
 		FeedbackText->SetText(FText::GetEmpty());
 	}
 
-	AnswerTiles.Reset();
-	BankTiles.Reset();
-	if (AnswerRow) { AnswerRow->ClearChildren(); }
-	if (TileBank) { TileBank->ClearChildren(); }
-	bTilesLocked = false;
-
-	const bool bIsChallenge = Node.Type == EConversationNodeType::PlayerChallenge;
+	ClearTiles();
+	ClearChoices();
 	if (ChallengePanel)
 	{
-		ChallengePanel->SetVisibility(bIsChallenge ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+		ChallengePanel->SetVisibility(ESlateVisibility::Collapsed);
 	}
 
-	if (bIsChallenge)
+	if (Node.Type == EConversationNodeType::PlayerChoice)
 	{
-		if (IntentText)
+		const UConversationSubsystem* Conversations = GetConversationSubsystem();
+		if (ChoiceBox)
 		{
-			IntentText->SetText(FText::Format(LOCTEXT("IntentFormat", "Your reply: {0}"), Node.Challenge.IntentPrompt));
+			ChoiceBox->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
-
-		TArray<FString> Words = Node.Challenge.TileBank;
-		for (int32 i = Words.Num() - 1; i > 0; --i)
+		for (int32 i = 0; i < Node.Choices.Num(); ++i)
 		{
-			Words.Swap(i, FMath::RandRange(0, i));
+			if (Conversations && !Conversations->IsChoiceAvailable(i))
+			{
+				continue;
+			}
+			UWordTileWidget* Button = CreateWidget<UWordTileWidget>(this, TileClass);
+			Button->SetWord(Node.Choices[i].Label.ToString());
+			Button->SetChoiceStyle();
+			Button->SetTileState(EWordTileState::Neutral);
+			Button->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleChoiceClicked);
+			ChoiceButtons.Add(Button, i);
+			if (ChoiceBox) { ChoiceBox->AddChildToWrapBox(Button); }
 		}
-		for (const FString& Word : Words)
+		if (FeedbackText)
 		{
-			UWordTileWidget* Tile = CreateWidget<UWordTileWidget>(this, TileClass);
-			Tile->SetWord(Word);
-			Tile->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleTileClicked);
-			BankTiles.Add(Tile);
-			if (TileBank) { TileBank->AddChildToWrapBox(Tile); }
+			// Reuse the feedback line as a prompt
+			FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::TextMuted));
+			FeedbackText->SetText(LOCTEXT("ChoosePrompt", "How do you respond?"));
 		}
+		SetButtons(false, false);
+		return;
 	}
 
-	SetButtons(bIsChallenge, !bIsChallenge);
+	// PlayerChallenge nodes get their tiles from HandleChallengeReady (broadcast right after this)
+	SetButtons(false, Node.Type != EConversationNodeType::PlayerChallenge);
+}
+
+void UConversationWidget::HandleChallengeReady(const FWordTileChallenge& Challenge)
+{
+	CurrentChallenge = Challenge;
+	ClearTiles();
+	ClearChoices();
+	if (FeedbackText)
+	{
+		FeedbackText->SetText(FText::GetEmpty());
+	}
+	if (ChallengePanel)
+	{
+		ChallengePanel->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	}
+	if (IntentText)
+	{
+		IntentText->SetText(FText::Format(LOCTEXT("IntentFormat", "Your reply: {0}"), Challenge.IntentPrompt));
+	}
+
+	TArray<FWordTile> Tiles = Challenge.Tiles;
+	for (int32 i = Tiles.Num() - 1; i > 0; --i)
+	{
+		Tiles.Swap(i, FMath::RandRange(0, i));
+	}
+	const bool bReadings = ShouldShowReadings();
+	for (const FWordTile& WordTile : Tiles)
+	{
+		UWordTileWidget* Tile = CreateWidget<UWordTileWidget>(this, TileClass);
+		Tile->SetWord(WordTile.Text);
+		Tile->SetReading(bReadings ? WordTile.Reading : FString());
+		Tile->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleTileClicked);
+		BankTiles.Add(Tile);
+		if (TileBank) { TileBank->AddChildToWrapBox(Tile); }
+	}
+
+	SetButtons(true, false);
+}
+
+void UConversationWidget::HandleChoiceClicked(UWordTileWidget* ChoiceButton)
+{
+	if (const int32* Index = ChoiceButtons.Find(ChoiceButton))
+	{
+		if (UConversationSubsystem* Conversations = GetConversationSubsystem())
+		{
+			Conversations->SelectChoice(*Index);
+		}
+	}
 }
 
 void UConversationWidget::HandleTileClicked(UWordTileWidget* Tile)
@@ -365,8 +496,8 @@ void UConversationWidget::HandleAnswerGraded(const FGradeResult& Result, const F
 		{
 			FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::TileCorrect));
 			FeedbackText->SetText(bPractice
-				? LOCTEXT("PracticePass", "Parfait ! That one's locked in.")
-				: LOCTEXT("Pass", "Parfait ! Your cover holds."));
+				? LOCTEXT("PracticePass", "Perfect! That one's locked in.")
+				: LOCTEXT("Pass", "Perfect! Your cover holds."));
 		}
 		else
 		{
@@ -397,17 +528,46 @@ void UConversationWidget::HandleCoverBlown()
 
 void UConversationWidget::HandleHelperToggle()
 {
-	bHelperHidden = !bHelperHidden;
-	UpdateHelperVisibility();
+	if (ULinguaSpySaveSubsystem* Save = GetSaveSubsystem())
+	{
+		Save->SetHelperEnabled(!Save->GetSettings().bHelperEnabled);
+	}
+	RefreshHelperAndReadings();
 }
 
-void UConversationWidget::UpdateHelperVisibility()
+void UConversationWidget::HandleReadingToggle()
+{
+	if (ULinguaSpySaveSubsystem* Save = GetSaveSubsystem())
+	{
+		Save->SetShowReadings(!Save->GetSettings().bShowReadings);
+	}
+	RefreshHelperAndReadings();
+
+	// Update readings on tiles already shown
+	const bool bReadings = ShouldShowReadings();
+	for (UWordTileWidget* Tile : BankTiles)
+	{
+		Tile->SetReading(bReadings ? CurrentChallenge.FindReading(Tile->GetWord()) : FString());
+	}
+	for (UWordTileWidget* Tile : AnswerTiles)
+	{
+		Tile->SetReading(bReadings ? CurrentChallenge.FindReading(Tile->GetWord()) : FString());
+	}
+}
+
+void UConversationWidget::RefreshHelperAndReadings()
 {
 	if (HelperText)
 	{
-		HelperText->SetText(bHelperHidden
-			? LOCTEXT("HelperHidden", "(Helper muted - click Helper to hear the translation)")
-			: FText::Format(LOCTEXT("HelperFormat", "Helper: \"{0}\""), CurrentHelperLine));
+		HelperText->SetText(IsHelperEnabled()
+			? FText::Format(LOCTEXT("HelperFormat", "Helper: \"{0}\""), CurrentHelperLine)
+			: LOCTEXT("HelperHidden", "(Helper muted - click Helper to hear the translation)"));
+	}
+	if (ReadingLineText)
+	{
+		const bool bShow = ShouldShowReadings() && !CurrentReadingLine.IsEmpty();
+		ReadingLineText->SetText(CurrentReadingLine);
+		ReadingLineText->SetVisibility(bShow ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 	}
 }
 

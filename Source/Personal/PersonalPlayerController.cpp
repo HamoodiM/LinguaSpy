@@ -18,6 +18,8 @@
 #include "ConversationSubsystem.h"
 #include "ConversationWidget.h"
 #include "SpyHUDWidget.h"
+#include "PauseMenuWidget.h"
+#include "Kismet/GameplayStatics.h"
 #include "Blueprint/UserWidget.h"
 
 APersonalPlayerController::APersonalPlayerController()
@@ -36,6 +38,7 @@ APersonalPlayerController::APersonalPlayerController()
 
 	ConversationWidgetClass = UConversationWidget::StaticClass();
 	HUDWidgetClass = USpyHUDWidget::StaticClass();
+	PauseMenuClass = UPauseMenuWidget::StaticClass();
 }
 
 void APersonalPlayerController::BeginPlay()
@@ -132,8 +135,33 @@ void APersonalPlayerController::HandleConversationEnded()
 {
 	if (HUDWidget)
 	{
-		HUDWidget->SetHint(NSLOCTEXT("LinguaSpy", "DefaultHint", "Click a local to talk to them."));
+		HUDWidget->SetHint(NSLOCTEXT("LinguaSpy", "DefaultHint", "Click a local to talk to them. P: pause."));
 	}
+}
+
+void APersonalPlayerController::TogglePause()
+{
+	if (!PauseMenuClass)
+	{
+		return;
+	}
+	if (!PauseMenu)
+	{
+		PauseMenu = CreateWidget<UPauseMenuWidget>(this, PauseMenuClass);
+		PauseMenu->OnResume.AddDynamic(this, &APersonalPlayerController::TogglePause);
+	}
+
+	const bool bOpen = !PauseMenu->IsInViewport();
+	if (bOpen)
+	{
+		PauseMenu->RefreshLabels();
+		PauseMenu->AddToViewport(100);
+	}
+	else
+	{
+		PauseMenu->RemoveFromParent();
+	}
+	UGameplayStatics::SetGamePaused(this, bOpen);
 }
 
 void APersonalPlayerController::SetupInputComponent()
@@ -148,6 +176,13 @@ void APersonalPlayerController::SetupInputComponent()
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 		{
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
+		}
+
+		// Pause menu (P works in PIE, where Escape stops play)
+		for (const FKey& PauseKey : { EKeys::P, EKeys::Escape })
+		{
+			FInputKeyBinding& Binding = InputComponent->BindKey(PauseKey, IE_Pressed, this, &APersonalPlayerController::TogglePause);
+			Binding.bExecuteWhenPaused = true;
 		}
 
 		// Set up action bindings

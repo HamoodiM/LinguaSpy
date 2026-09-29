@@ -20,6 +20,9 @@ public:
 
 	/** Constructor */
 	APersonalGameMode();
+
+	/** Enters the city (mission state) before actors begin play */
+	virtual void StartPlay() override;
 };
 
 

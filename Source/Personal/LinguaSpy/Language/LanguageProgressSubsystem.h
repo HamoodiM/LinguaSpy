@@ -4,23 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "LinguaSpySaveGame.h"
 #include "LanguageProgressSubsystem.generated.h"
 
-USTRUCT(BlueprintType)
-struct FSkillStats
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadOnly, Category="Progress")
-	int32 Passes = 0;
-
-	UPROPERTY(BlueprintReadOnly, Category="Progress")
-	int32 Failures = 0;
-};
+class ULinguaSpySaveSubsystem;
 
 /**
- *  Tracks how well the player does per language skill (Greetings, Ordering, ...).
- *  Runtime only for now; persisted via USaveGame in Phase 2.
+ *  Tracks how well the player does per language skill (Greetings, Ordering, ...), per city.
+ *  Stats live in the save profile; keys are "<CityId>.<SkillTag>".
  */
 UCLASS()
 class ULanguageProgressSubsystem : public UGameInstanceSubsystem
@@ -29,18 +20,24 @@ class ULanguageProgressSubsystem : public UGameInstanceSubsystem
 
 public:
 
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+
 	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Progress")
-	void RecordResult(FName SkillTag, bool bPassed);
+	void RecordResult(FName CityId, FName SkillTag, bool bPassed);
 
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Progress")
-	FSkillStats GetStats(FName SkillTag) const;
+	FSkillStats GetStats(FName CityId, FName SkillTag) const;
 
-	/** Skills where failures outnumber passes, worst first. */
+	/** Skills in a city where failures outnumber passes, worst first. */
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Progress")
-	TArray<FName> GetWeakSkills() const;
+	TArray<FName> GetWeakSkills(FName CityId) const;
+
+	static FName MakeKey(FName CityId, FName SkillTag);
 
 private:
 
+	TMap<FName, FSkillStats>* GetStatsMap() const;
+
 	UPROPERTY()
-	TMap<FName, FSkillStats> Stats;
+	TObjectPtr<ULinguaSpySaveSubsystem> SaveSubsystem;
 };

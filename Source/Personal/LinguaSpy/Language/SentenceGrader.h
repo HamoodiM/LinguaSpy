@@ -28,5 +28,5 @@ public:
 
 	/** Joins tokens into a display sentence (e.g. for showing the model answer). */
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Grading")
-	static FString JoinTokens(const TArray<FString>& Tokens);
+	static FString JoinTokens(const TArray<FString>& Tokens, bool bUseSpaces = true);
 };

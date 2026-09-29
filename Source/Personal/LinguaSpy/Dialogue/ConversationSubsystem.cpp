@@ -3,24 +3,37 @@
 #include "ConversationSubsystem.h"
 #include "ConversationAsset.h"
 #include "CoverComponent.h"
+#include "LanguagePackAsset.h"
+#include "LanguageProgressSubsystem.h"
+#include "MissionSubsystem.h"
 #include "NpcCharacter.h"
 #include "SentenceGrader.h"
-#include "LanguageProgressSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Personal.h"
 
+namespace
+{
+	template <typename T>
+	T* GetGameInstanceSubsystem(const UWorld* World)
+	{
+		const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+		return GameInstance ? GameInstance->GetSubsystem<T>() : nullptr;
+	}
+}
+
 bool UConversationSubsystem::StartConversation(ANpcCharacter* Npc, UCoverComponent* PlayerCover)
 {
-	if (IsActive() || !Npc || !Npc->GetConversation())
+	UConversationAsset* Conversation = Npc ? Npc->ResolveConversation() : nullptr;
+	if (IsActive() || !Conversation)
 	{
 		return false;
 	}
 
 	ActiveNpc = Npc;
-	ActiveConversation = Npc->GetConversation();
+	ActiveConversation = Conversation;
 	ActiveCover = PlayerCover;
-	FailedNodeIds.Reset();
+	FailedItems.Reset();
 	PracticeQueue.Reset();
 	Mode = EConversationMode::Conversation;
 
@@ -34,6 +47,32 @@ bool UConversationSubsystem::StartConversation(ANpcCharacter* Npc, UCoverCompone
 	return true;
 }
 
+ULanguagePackAsset* UConversationSubsystem::GetActiveLanguage() const
+{
+	return ActiveConversation ? ActiveConversation->Language.Get() : nullptr;
+}
+
+FName UConversationSubsystem::GetCityId() const
+{
+	const ULanguagePackAsset* Language = GetActiveLanguage();
+	return Language ? Language->CityId : FName(TEXT("Unknown"));
+}
+
+void UConversationSubsystem::ApplyFlags(const TArray<FName>& Flags) const
+{
+	if (Flags.IsEmpty())
+	{
+		return;
+	}
+	if (UMissionSubsystem* Missions = GetGameInstanceSubsystem<UMissionSubsystem>(GetWorld()))
+	{
+		for (FName Flag : Flags)
+		{
+			Missions->SetFlag(Flag);
+		}
+	}
+}
+
 void UConversationSubsystem::EnterNode(FName NodeId)
 {
 	const FConversationNode* Node = ActiveConversation ? ActiveConversation->FindNode(NodeId) : nullptr;
@@ -43,31 +82,79 @@ void UConversationSubsystem::EnterNode(FName NodeId)
 		{
 			UE_LOG(LogPersonal, Warning, TEXT("Conversation '%s' has no node '%s'"), *GetNameSafe(ActiveConversation), *NodeId.ToString());
 		}
-		EndConversation();
+		// Running off the end of the graph counts as finishing it
+		FinishConversation(LinguaSpyOutcomes::Completed);
 		return;
 	}
 
 	CurrentNodeId = NodeId;
+	ActiveChoice = INDEX_NONE;
 	bAwaitingContinueAfterGrade = false;
 	bLastAnswerPassed = false;
+
+	if (Mode == EConversationMode::Conversation)
+	{
+		ApplyFlags(Node->SetFlags);
+	}
+
 	OnNodeEntered.Broadcast(*Node, Mode);
+	if (Node->Type == EConversationNodeType::PlayerChallenge)
+	{
+		OnChallengeReady.Broadcast(Node->Challenge);
+	}
+}
+
+bool UConversationSubsystem::IsChoiceAvailable(int32 ChoiceIndex) const
+{
+	const FConversationNode* Node = GetCurrentNode();
+	if (!Node || Node->Type != EConversationNodeType::PlayerChoice || !Node->Choices.IsValidIndex(ChoiceIndex))
+	{
+		return false;
+	}
+	const UMissionSubsystem* Missions = GetGameInstanceSubsystem<UMissionSubsystem>(GetWorld());
+	return !Missions || Missions->HasAllFlags(Node->Choices[ChoiceIndex].RequiredFlags);
+}
+
+bool UConversationSubsystem::SelectChoice(int32 ChoiceIndex)
+{
+	const FConversationNode* Node = GetCurrentNode();
+	if (bAwaitingContinueAfterGrade || !Node || Node->Type != EConversationNodeType::PlayerChoice || !Node->Choices.IsValidIndex(ChoiceIndex))
+	{
+		return false;
+	}
+	ActiveChoice = ChoiceIndex;
+	OnChallengeReady.Broadcast(Node->Choices[ChoiceIndex].Challenge);
+	return true;
 }
 
 void UConversationSubsystem::EnterPracticeItem()
 {
 	if (PracticeQueue.IsEmpty())
 	{
-		// Drill complete: restore cover and try the real conversation again
+		// Drill complete: restore cover, then either restart or let the mission branch
 		if (UCoverComponent* Cover = ActiveCover.Get())
 		{
 			Cover->ResetCover();
 		}
-		FailedNodeIds.Reset();
+		FailedItems.Reset();
 		Mode = EConversationMode::Conversation;
-		EnterNode(ActiveConversation->StartNode);
+		if (!ActiveConversation->CoverBlownOutcome.IsNone())
+		{
+			FinishConversation(ActiveConversation->CoverBlownOutcome);
+		}
+		else
+		{
+			EnterNode(ActiveConversation->StartNode);
+		}
 		return;
 	}
-	EnterNode(PracticeQueue[0]);
+
+	const FConversationPracticeItem Item = PracticeQueue[0];
+	EnterNode(Item.NodeId);
+	if (Item.ChoiceIndex != INDEX_NONE)
+	{
+		SelectChoice(Item.ChoiceIndex);
+	}
 }
 
 const FConversationNode* UConversationSubsystem::GetCurrentNode() const
@@ -75,31 +162,34 @@ const FConversationNode* UConversationSubsystem::GetCurrentNode() const
 	return ActiveConversation ? ActiveConversation->FindNode(CurrentNodeId) : nullptr;
 }
 
+const FWordTileChallenge* UConversationSubsystem::GetActiveChallenge() const
+{
+	return ActiveConversation ? ActiveConversation->FindChallenge(CurrentNodeId, ActiveChoice) : nullptr;
+}
+
 FGradeResult UConversationSubsystem::SubmitAnswer(const TArray<FString>& Tokens)
 {
-	const FConversationNode* Node = GetCurrentNode();
-	if (!Node || Node->Type != EConversationNodeType::PlayerChallenge || bAwaitingContinueAfterGrade
+	const FWordTileChallenge* Challenge = GetActiveChallenge();
+	if (!Challenge || bAwaitingContinueAfterGrade
 		|| (Mode != EConversationMode::Conversation && Mode != EConversationMode::Practice))
 	{
 		return FGradeResult();
 	}
 
-	const FGradeResult Result = USentenceGrader::Grade(Node->Challenge, Tokens);
+	const FGradeResult Result = USentenceGrader::Grade(*Challenge, Tokens);
 	bLastAnswerPassed = Result.bPassed;
 	bAwaitingContinueAfterGrade = true;
 
-	if (UGameInstance* GameInstance = GetWorld()->GetGameInstance())
+	if (ULanguageProgressSubsystem* Progress = GetGameInstanceSubsystem<ULanguageProgressSubsystem>(GetWorld()))
 	{
-		if (ULanguageProgressSubsystem* Progress = GameInstance->GetSubsystem<ULanguageProgressSubsystem>())
-		{
-			Progress->RecordResult(Node->Challenge.SkillTag, Result.bPassed);
-		}
+		Progress->RecordResult(GetCityId(), Challenge->SkillTag, Result.bPassed);
 	}
 
 	FString ModelAnswer;
-	if (Node->Challenge.AcceptedAnswers.Num() > 0)
+	if (Challenge->AcceptedAnswers.Num() > 0)
 	{
-		ModelAnswer = USentenceGrader::JoinTokens(Node->Challenge.AcceptedAnswers[0].Tokens);
+		const ULanguagePackAsset* Language = GetActiveLanguage();
+		ModelAnswer = USentenceGrader::JoinTokens(Challenge->AcceptedAnswers[0].Tokens, !Language || Language->bUsesWordSpacing);
 	}
 
 	// Broadcast before applying the penalty so the UI shows the grade, then the cover-blown state
@@ -117,10 +207,10 @@ FGradeResult UConversationSubsystem::SubmitAnswer(const TArray<FString>& Tokens)
 		}
 		else
 		{
-			FailedNodeIds.AddUnique(CurrentNodeId);
+			FailedItems.AddUnique({ CurrentNodeId, ActiveChoice });
 			if (Cover)
 			{
-				Cover->ApplyPenalty(Node->Challenge.CoverPenalty); // may trigger HandleCoverBlown
+				Cover->ApplyPenalty(Challenge->CoverPenalty); // may trigger HandleCoverBlown
 			}
 		}
 	}
@@ -146,7 +236,7 @@ void UConversationSubsystem::Continue()
 		return;
 
 	case EConversationMode::CoverBlown:
-		PracticeQueue = FailedNodeIds;
+		PracticeQueue = FailedItems;
 		Mode = EConversationMode::Practice;
 		EnterPracticeItem();
 		return;
@@ -154,7 +244,7 @@ void UConversationSubsystem::Continue()
 	case EConversationMode::Practice:
 		if (bAwaitingContinueAfterGrade && PracticeQueue.Num() > 0)
 		{
-			const FName Item = PracticeQueue[0];
+			const FConversationPracticeItem Item = PracticeQueue[0];
 			PracticeQueue.RemoveAt(0);
 			if (!bLastAnswerPassed)
 			{
@@ -177,26 +267,48 @@ void UConversationSubsystem::Continue()
 		case EConversationNodeType::NpcLine:
 			EnterNode(Node->NextNode);
 			break;
+
 		case EConversationNodeType::End:
-			EndConversation();
+			FinishConversation(Node->Outcome.IsNone() ? LinguaSpyOutcomes::Completed : Node->Outcome);
 			break;
+
 		case EConversationNodeType::PlayerChallenge:
-			if (!bAwaitingContinueAfterGrade)
+			if (bAwaitingContinueAfterGrade)
 			{
-				break; // must answer first
+				EnterNode(bLastAnswerPassed ? Node->NextNode : (Node->FailNode.IsNone() ? CurrentNodeId : Node->FailNode));
 			}
-			if (bLastAnswerPassed)
+			break;
+
+		case EConversationNodeType::PlayerChoice:
+			if (bAwaitingContinueAfterGrade && Node->Choices.IsValidIndex(ActiveChoice))
 			{
-				EnterNode(Node->NextNode);
-			}
-			else
-			{
-				EnterNode(Node->FailNode.IsNone() ? CurrentNodeId : Node->FailNode);
+				const FConversationChoice& Choice = Node->Choices[ActiveChoice];
+				if (bLastAnswerPassed)
+				{
+					ApplyFlags(Choice.SetFlags);
+					EnterNode(Choice.NextNode);
+				}
+				else
+				{
+					// Back to the choice so the player can try again or pick another approach
+					EnterNode(Choice.FailNode.IsNone() ? CurrentNodeId : Choice.FailNode);
+				}
 			}
 			break;
 		}
 		return;
 	}
+	}
+}
+
+void UConversationSubsystem::FinishConversation(FName Outcome)
+{
+	const FName NpcTargetId = ActiveNpc.IsValid() ? ActiveNpc->GetMissionTargetId() : NAME_None;
+	EndConversation();
+
+	if (UMissionSubsystem* Missions = GetGameInstanceSubsystem<UMissionSubsystem>(GetWorld()))
+	{
+		Missions->ReportConversationFinished(NpcTargetId, Outcome);
 	}
 }
 
@@ -215,8 +327,9 @@ void UConversationSubsystem::EndConversation()
 	ActiveNpc.Reset();
 	ActiveCover.Reset();
 	CurrentNodeId = NAME_None;
+	ActiveChoice = INDEX_NONE;
 	PracticeQueue.Reset();
-	FailedNodeIds.Reset();
+	FailedItems.Reset();
 	OnConversationEnded.Broadcast();
 }
 
