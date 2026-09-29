@@ -18,9 +18,9 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 ## Roadmap
 - **Phase 1 (done)** — core loop vertical slice: greybox Paris street, NPC conversations, helper
   translation, word-tile replies, grader, cover meter, cover-blown → practice drill.
-- **Phase 2 (current, see `docs/Phase2_Plan.md`)** — branching missions, 4 cities (Paris/French, Madrid/Spanish,
+- **Phase 2 (done, see `docs/Phase2_Plan.md`)** — branching missions, 4 cities (Paris/French, Madrid/Spanish,
   Tokyo/Japanese, Rome/Italian), main menu + city select, minimal save, Slate conversation editor tool.
-- **Phase 3 (next, see `docs/Phase3_Plan.md`)** — merges Phase 2's M7 (Opération Croissant) + M8 (Madrid/Tokyo/Rome) with the art pass:
+- **Phase 3 (done, see `docs/Phase3_Plan.md`)** — merged Phase 2's M7 (Opération Croissant) + M8 (Madrid/Tokyo/Rome) with the art pass:
   cel-shading + outlines, Blender-modeled characters on the mannequin skeleton, env kits, occlusion fade, UI skin, MetaSound audio, NPC life.
 - **Phase 4** — more cities/languages, spaced-repetition practice, phrasebook, helper-reliance scoring.
 
@@ -30,15 +30,22 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   - `Language/` — `USentenceGrader` (pure, testable), `ULanguageProgressSubsystem` (per-skill stats).
   - `Dialogue/` — `UConversationSubsystem` (world subsystem driving the active conversation + practice drills).
   - `Cover/` — `UCoverComponent` (cover meter on the player).
-  - `Interaction/` — `ANpcCharacter` (MissionTarget id + flag-based `ConversationOptions`).
+  - `Interaction/` — `ANpcCharacter` (mannequin-skeleton body, faces the player while talking, `ConversationOptions`
+    gated by flags / `RequiredMission` / current target), `APedestrianCharacter` (wandering locals, AIController + navmesh).
+  - `Camera/` — `UOcclusionFadeComponent` (fades occluders via Custom Primitive Data[0] → `M_ToonMaster` dither).
+  - `Audio/` — `ULinguaSpyAudioSettings` (Project Settings → Game → LinguaSpy Audio) + `LinguaSpyAudio::PlayUI/PlayLoop`.
   - `Mission/` — `UMissionAsset` (objective graph, `ResolveTransition`), `UMissionSubsystem` (city/mission/flags),
     `UMissionTargetComponent` (id + beacon), `AMissionMarker` (ReachLocation), `AMissionPickup` (Collect).
   - `Save/` — `ULinguaSpySaveGame` + `ULinguaSpySaveSubsystem` (single profile: skills per city, mission state, settings).
   - `UI/` — code-built widgets (conversation, tiles, HUD, main menu, city cards, pause); `BindWidgetOptional` lets a WBP restyle later.
-  - `Tests/` — automation tests (`LinguaSpy.*`: Grader, GraderLanguages, MissionTransitions, SaveRoundTrip).
+  - `Tests/` — automation tests (`LinguaSpy.*`: Grader, GraderLanguages, MissionTransitions, SaveRoundTrip, NpcConversationResolve).
 - `Source/PersonalEditor/` — editor-only module: **Tools → LinguaSpy → Conversation Editor** tab (`SConversationEditor`).
-- `Tools/Content/*.py` — Python content scripts (run in-editor via unreal-mcp). They overwrite the assets they build;
-  once an asset is hand-edited (editor/tool), stop regenerating it from the script.
+- `Tools/Content/*.py` — Python content scripts (run in-editor via unreal-mcp): `paris_content.py` (+ `paris_croissant.py`),
+  `madrid|tokyo|rome_content.py`, `art_setup.py` (imports + toon materials), `audio_setup.py` (MetaSounds). They overwrite
+  the assets they build; once an asset is hand-edited (editor/tool), stop regenerating it from the script.
+- `Tools/Greybox/greybox_kit.py` + `cities.py` — layout-driven city map builder (`build_city_map(PARIS|MADRID|TOKYO|ROME)`).
+- `Tools/Blender/build_characters.py` / `build_kits.py` — procedural Blender builders (run via Blender MCP) for the 7 characters
+  and the per-city environment kits; `.blend` files saved next to them. Exports go to `Saved/Export/`.
 - Game content lives under `/Game/LinguaSpy/` (`Data/`, `UI/`, `Blueprints/`, `Maps/`).
 - **Never hardcode language content in C++.** Lines, translations, tiles, and accepted answers go in DataAssets.
   Source files are UTF-8; accents matter (grader treats `café` ≠ `cafe`).
@@ -60,11 +67,24 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   `/Game/LinguaSpy/Blueprints/BP_SpyCharacter|BP_SpyController|BP_SpyGameMode` (parents: `APersonalCharacter`,
   `APersonalPlayerController`, `APersonalGameMode`). `BP_SpyGameMode` is the project default and the Paris map's override.
 - Startup/default map: `/Game/LinguaSpy/Maps/Lvl_MainMenu` (`AMenuGameMode`, city cards from all `ULanguagePackAsset`s).
-  Cities: `Lvl_Paris_Greybox` (street along X; café/Camille north x≈-900, kiosk/Marcel south x≈900, metro marker east).
-  `APersonalGameMode::StartPlay` enters the city (finds the pack whose `CityMap` is this map).
-  Materials: `M_Flat` + `MI_*` pastel instances in `/Game/LinguaSpy/Materials`.
-- Content: `/Game/LinguaSpy/Data/<Language>/` (conversations, `Missions/`, `DA_Lang_*` packs). Madrid/Tokyo/Rome packs exist
-  without maps ("Coming soon") until M8. Paris content is generated by `Tools/Content/paris_content.py`.
+  Cities: `Lvl_Paris`, `Lvl_Madrid`, `Lvl_Tokyo`, `Lvl_Rome` (built by the greybox kit; street along X, north = +Y).
+  `Lvl_Paris_Greybox` is the obsolete Phase 1 map (unused). `APersonalGameMode::StartPlay` enters the city (pack whose
+  `CityMap` is this map) and starts ambience.
+- Content: `/Game/LinguaSpy/Data/<Language>/` (conversations, `Missions/`, `DA_Lang_*` packs). Paris: First Contact (tutorial)
+  → Opération Croissant. Madrid/Tokyo/Rome: one mission each (`docs/City_Scripts_Review.md`).
+
+## Art pipeline (Phase 3)
+- Look: `M_ToonMaster` (VertexColor × per-instance `Tint` where VertexColor.a = 1, roughness 1, CPD[0] dithered fade) on
+  all kit/character meshes; `PP_Toon` (unbound PostProcessVolume "ToonPostProcess" in every map) = cel bands + depth/normal
+  ink outlines. Tints: `MI_Tint_<HEX>` under `/Game/LinguaSpy/Materials/Tints` (created on demand by the greybox kit).
+- Kits: `/Game/LinguaSpy/Art/{Shared,Paris,Madrid,Tokyo,Rome}` (face +Y in UE; north-row buildings are rotated 180°).
+- Characters: `/Game/LinguaSpy/Art/Characters/SK_{Spy,Barista,Vendor,Elder,Young,Tourist,Worker}` on `SK_Mannequin`,
+  rigid "figurine" parts (each part 100% bound to one bone), colors in vertex colors.
+- **FBX recipe for mannequin-skeleton meshes (critical):** armature object named `Armature` with a real `root` bone
+  (all orphan bones parented to it); bake rig+mesh ×100 and set scene `unit_settings.scale_length = 0.01`, export with
+  `apply_unit_scale=True, FBX_SCALE_NONE`. Otherwise Interchange puts ×100 on the root bone → characters are huge while
+  moving (blendspaces use the mesh ref pose). Verify with `SkeletonService.get_bone_transform(mesh, "root")` scale = 1.
+- UE 5.8 imports FBX through Interchange; skeletal-mesh materials must be set by rebuilding the `SkeletalMaterial` list.
 - UI is code-built by default (`UConversationWidget`, `USpyHUDWidget`, `UWordTileWidget`); the controller creates it.
 
 ## Editor-automation gotchas (unreal-mcp / Python)
@@ -74,10 +94,16 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   convert sRGB hex to `LinearColor` manually.
 - World subsystems in PIE: find via `unreal.ObjectIterator(unreal.ConversationSubsystem)` (path contains `UEDPIE`).
 - Screenshot of PIE incl. UI: `SystemLibrary.execute_console_command(pie_world, "shot showui", pc)` → `Saved/Screenshots/WindowsEditor`.
-- When C++ needs a rebuild, ask the user to recompile/relaunch (don't run Build.bat while the editor is open).
+- When C++ needs a rebuild: if the editor is closed, build with Build.bat yourself (then launch the editor); if it is open,
+  ask the user to recompile/relaunch (Live Coding blocks Build.bat).
+- `EditorAssetLibrary.load_asset` fails during PIE — use `unreal.load_asset("/Game/...Asset.Asset")` instead.
+- The first `shot showui` after starting PIE often captures the editor viewport — take a second shot.
+- Blender MCP: never leave the armature hidden when running `transform_apply` (it silently skips hidden objects).
+- Stacked flat slabs at the same top height z-fight (flicker) — keep water/plazas a few cm above road/sidewalk.
 
 ## Known issues / next up
-- Tall facades and awnings can occlude the player from the top-down camera → camera occlusion fade (Phase 3).
+- Toon post-process thresholds (`PP_Toon` T1/T2/levels) are tuned by eye; revisit per city if lighting changes.
+- Audio is procedural and minimal (MetaSounds); music per city is only the ambience pad for now.
 - Consider Git LFS for `Content/` binaries before the repo grows.
 
 ## Build / test
