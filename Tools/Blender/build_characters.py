@@ -295,11 +295,37 @@ def export_fbx(name):
     obj.select_set(True)
     bpy.context.view_layer.objects.active = arm
     path = f"{EXPORT_DIR}/SK_{name}.fbx"
-    bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={'ARMATURE', 'MESH'},
-                             apply_unit_scale=True, global_scale=1.0, apply_scale_options='FBX_SCALE_NONE',
-                             add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X',
-                             armature_nodetype='NULL', bake_anim=False, mesh_smooth_type='FACE',
-                             colors_type='SRGB', use_armature_deform_only=False)
+
+    # UE's mannequin skeleton is in centimeters with a unit-scale root. Temporarily bake the rig + mesh to
+    # centimeters (x100) and export raw units, so the root bone has scale 1 and child bones match SK_Mannequin.
+    def bake_scale(factor):
+        # Armature: scale its data (bones) by applying an object scale on the armature alone
+        obj.parent = None
+        bpy.ops.object.select_all(action='DESELECT')
+        arm.select_set(True)
+        bpy.context.view_layer.objects.active = arm
+        arm.scale = (factor, factor, factor)
+        bpy.context.view_layer.update()
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        # Mesh: scale vertex data directly, keep identity transform, re-parent without compensation
+        obj.data.transform(Matrix.Scale(factor, 4))
+        obj.matrix_world = Matrix()
+        obj.parent = arm
+        obj.matrix_parent_inverse = arm.matrix_world.inverted()
+        bpy.ops.object.select_all(action='DESELECT')
+        arm.select_set(True)
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = arm
+
+    bake_scale(100.0)
+    try:
+        bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={'ARMATURE', 'MESH'},
+                                 apply_unit_scale=False, global_scale=1.0, apply_scale_options='FBX_SCALE_NONE',
+                                 add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X',
+                                 armature_nodetype='NULL', bake_anim=False, mesh_smooth_type='FACE',
+                                 colors_type='SRGB', use_armature_deform_only=False)
+    finally:
+        bake_scale(0.01)
     return path
 
 
