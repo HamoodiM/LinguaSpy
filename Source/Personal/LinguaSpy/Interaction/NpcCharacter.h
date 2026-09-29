@@ -11,7 +11,7 @@ class USphereComponent;
 class UStaticMeshComponent;
 class UMissionTargetComponent;
 
-/** A conversation the NPC offers when the mission flags match. */
+/** A conversation the NPC offers when the mission state matches. */
 USTRUCT(BlueprintType)
 struct FNpcConversationOption
 {
@@ -19,6 +19,14 @@ struct FNpcConversationOption
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="NPC")
 	TObjectPtr<UConversationAsset> Conversation;
+
+	/** Only offered while this mission (MissionId) is active. None = any mission (or none). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="NPC")
+	FName RequiredMission;
+
+	/** Only offered while this NPC is the current objective's target. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="NPC")
+	bool bOnlyIfCurrentTarget = false;
 
 	/** All of these mission flags must be set. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="NPC")
@@ -29,7 +37,7 @@ struct FNpcConversationOption
 	TArray<FName> BlockedFlags;
 };
 
-/** A local NPC who holds a conversation with the spy when clicked. */
+/** A local NPC who holds a conversation with the spy when clicked, and turns to face them while talking. */
 UCLASS()
 class ANpcCharacter : public ACharacter
 {
@@ -43,6 +51,12 @@ public:
 	UFUNCTION(BlueprintPure, Category="NPC")
 	UConversationAsset* ResolveConversation() const;
 
+	/**
+	 *  Pure option selection (testable): index of the first option matching the mission state, or INDEX_NONE.
+	 */
+	static int32 ChooseConversationOption(const TArray<FNpcConversationOption>& Options, FName ActiveMissionId,
+		bool bIsCurrentTarget, TFunctionRef<bool(FName)> HasFlag);
+
 	UFUNCTION(BlueprintPure, Category="NPC")
 	const FText& GetDisplayName() const { return DisplayName; }
 
@@ -53,7 +67,13 @@ public:
 	/** Distance at which the player can start talking. */
 	float GetTalkRadius() const;
 
+	virtual void Tick(float DeltaSeconds) override;
+
 protected:
+
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void OnConstruction(const FTransform& Transform) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="NPC")
 	FText DisplayName;
@@ -66,7 +86,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="NPC")
 	TArray<FNpcConversationOption> ConversationOptions;
 
-	/** Stylized placeholder body (swap for a skeletal mesh in the art pass). */
+	/** Degrees per second when turning to face the player. */
+	UPROPERTY(EditAnywhere, Category="NPC")
+	float TurnSpeed = 300.f;
+
+	/** Fallback placeholder body, only shown when the skeletal mesh has no asset. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	TObjectPtr<UStaticMeshComponent> BodyMesh;
 
@@ -76,4 +100,18 @@ protected:
 	/** Mission id + beacon shown while this NPC is the current objective. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	TObjectPtr<UMissionTargetComponent> MissionTarget;
+
+private:
+
+	UFUNCTION()
+	void HandleConversationStarted(ANpcCharacter* Npc);
+
+	UFUNCTION()
+	void HandleConversationEnded();
+
+	void UpdateBodyVisibility();
+
+	float HomeYaw = 0.f;
+	float TargetYaw = 0.f;
+	bool bTalking = false;
 };

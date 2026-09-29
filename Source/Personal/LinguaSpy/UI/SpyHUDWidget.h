@@ -88,4 +88,5 @@ private:
 
 	TWeakObjectPtr<UCoverComponent> BoundCover;
 	float BannerTimeLeft = 0.f;
+	float BannerPulseTime = -1.f;
 };

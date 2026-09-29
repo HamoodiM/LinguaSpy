@@ -23,6 +23,7 @@
 #include "Engine/Font.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "LinguaSpyAudio.h"
 
 #define LOCTEXT_NAMESPACE "LinguaSpyConversation"
 
@@ -105,6 +106,7 @@ bool UConversationWidget::ShouldShowReadings() const
 UButton* UConversationWidget::MakeButton(const FText& Label, const FName& Name)
 {
 	UButton* Button = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), Name);
+	LinguaSpyStyle::StyleButton(Button, LinguaSpyStyle::ButtonRadius);
 	Button->SetBackgroundColor(LinguaSpyStyle::Accent);
 	UTextBlock* Text = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
 	Text->SetText(Label);
@@ -124,10 +126,11 @@ void UConversationWidget::BuildDefaultLayout()
 	WidgetTree->RootWidget = Root;
 
 	// Bottom panel spanning most of the screen width
-	UBorder* Panel = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Panel"));
-	Panel->SetBrushColor(PanelBg);
-	Panel->SetPadding(FMargin(28.f, 20.f));
-	if (UCanvasPanelSlot* PanelSlot = Root->AddChildToCanvas(Panel))
+	UBorder* PanelBorder = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Panel"));
+	Panel = PanelBorder;
+	LinguaSpyStyle::StyleBorder(PanelBorder, PanelBg, LinguaSpyStyle::PanelRadius);
+	PanelBorder->SetPadding(FMargin(28.f, 20.f));
+	if (UCanvasPanelSlot* PanelSlot = Root->AddChildToCanvas(PanelBorder))
 	{
 		PanelSlot->SetAnchors(FAnchors(0.12f, 1.f, 0.88f, 1.f));
 		PanelSlot->SetAlignment(FVector2D(0.f, 1.f));
@@ -136,7 +139,7 @@ void UConversationWidget::BuildDefaultLayout()
 	}
 
 	UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("Column"));
-	Panel->SetContent(Column);
+	PanelBorder->SetContent(Column);
 
 	auto AddRow = [Column](UWidget* Widget, float TopPadding)
 	{
@@ -190,7 +193,7 @@ void UConversationWidget::BuildDefaultLayout()
 	Challenge->AddChildToVerticalBox(IntentText);
 
 	UBorder* AnswerBorder = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("AnswerBorder"));
-	AnswerBorder->SetBrushColor(PanelInset);
+	LinguaSpyStyle::StyleBorder(AnswerBorder, PanelInset, 8.f);
 	AnswerBorder->SetPadding(FMargin(10.f));
 	USizeBox* AnswerSize = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("AnswerSize"));
 	AnswerSize->SetMinDesiredHeight(52.f);
@@ -275,7 +278,12 @@ void UConversationWidget::HandleConversationStarted(ANpcCharacter* Npc)
 		ReadingToggleButton->SetVisibility(ActiveLanguage && ActiveLanguage->bHasReadings ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
 	ApplyNativeFont(NativeLineText, 30);
+	if (SpeakerText && ActiveLanguage)
+	{
+		SpeakerText->SetColorAndOpacity(FSlateColor(ActiveLanguage->AccentColor));
+	}
 	SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	SlideTime = 0.f;
 }
 
 void UConversationWidget::HandleConversationEnded()
@@ -408,6 +416,7 @@ void UConversationWidget::HandleChallengeReady(const FWordTileChallenge& Challen
 
 void UConversationWidget::HandleChoiceClicked(UWordTileWidget* ChoiceButton)
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (const int32* Index = ChoiceButtons.Find(ChoiceButton))
 	{
 		if (UConversationSubsystem* Conversations = GetConversationSubsystem())
@@ -438,6 +447,8 @@ void UConversationWidget::HandleTileClicked(UWordTileWidget* Tile)
 		if (AnswerRow) { AnswerRow->AddChildToWrapBox(Tile); }
 	}
 	Tile->bInAnswer = !Tile->bInAnswer;
+	Tile->PlayPop();
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::TilePlace);
 }
 
 void UConversationWidget::HandleClear()
@@ -481,11 +492,16 @@ void UConversationWidget::HandleSubmit()
 
 void UConversationWidget::HandleAnswerGraded(const FGradeResult& Result, const FString& ModelAnswer)
 {
+	LinguaSpyAudio::PlayUI(this, Result.bPassed ? ESpyUISound::Pass : ESpyUISound::Fail);
 	bTilesLocked = true;
 	for (int32 i = 0; i < AnswerTiles.Num(); ++i)
 	{
 		const bool bCorrect = Result.TileCorrect.IsValidIndex(i) && Result.TileCorrect[i];
 		AnswerTiles[i]->SetTileState(bCorrect ? EWordTileState::Correct : EWordTileState::Wrong);
+		if (!bCorrect)
+		{
+			AnswerTiles[i]->PlayShake();
+		}
 	}
 
 	if (FeedbackText)
@@ -514,6 +530,7 @@ void UConversationWidget::HandleAnswerGraded(const FGradeResult& Result, const F
 
 void UConversationWidget::HandleCoverBlown()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::CoverBlown);
 	if (ModeText)
 	{
 		ModeText->SetText(LOCTEXT("CoverBlownBanner", "COVER BLOWN"));
@@ -528,6 +545,7 @@ void UConversationWidget::HandleCoverBlown()
 
 void UConversationWidget::HandleHelperToggle()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (ULinguaSpySaveSubsystem* Save = GetSaveSubsystem())
 	{
 		Save->SetHelperEnabled(!Save->GetSettings().bHelperEnabled);
@@ -537,6 +555,7 @@ void UConversationWidget::HandleHelperToggle()
 
 void UConversationWidget::HandleReadingToggle()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (ULinguaSpySaveSubsystem* Save = GetSaveSubsystem())
 	{
 		Save->SetShowReadings(!Save->GetSettings().bShowReadings);
@@ -573,6 +592,7 @@ void UConversationWidget::RefreshHelperAndReadings()
 
 void UConversationWidget::HandleContinue()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (UConversationSubsystem* Conversations = GetConversationSubsystem())
 	{
 		Conversations->Continue();
@@ -581,6 +601,7 @@ void UConversationWidget::HandleContinue()
 
 void UConversationWidget::HandleLeave()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (UConversationSubsystem* Conversations = GetConversationSubsystem())
 	{
 		Conversations->EndConversation();
@@ -593,6 +614,26 @@ void UConversationWidget::SetButtons(bool bShowSubmit, bool bShowContinue)
 	if (SubmitButton) { SubmitButton->SetVisibility(SubmitVis); }
 	if (ClearButton) { ClearButton->SetVisibility(SubmitVis); }
 	if (ContinueButton) { ContinueButton->SetVisibility(bShowContinue ? ESlateVisibility::Visible : ESlateVisibility::Collapsed); }
+}
+
+void UConversationWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	// Slide the panel up and fade it in when a conversation starts
+	constexpr float SlideDuration = 0.25f;
+	if (SlideTime >= 0.f && Panel)
+	{
+		SlideTime += InDeltaTime;
+		const float Alpha = FMath::Clamp(SlideTime / SlideDuration, 0.f, 1.f);
+		const float Eased = 1.f - FMath::Pow(1.f - Alpha, 3.f);
+		Panel->SetRenderTranslation(FVector2D(0.f, (1.f - Eased) * 80.f));
+		Panel->SetRenderOpacity(Eased);
+		if (Alpha >= 1.f)
+		{
+			SlideTime = -1.f;
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

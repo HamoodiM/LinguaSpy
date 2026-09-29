@@ -9,6 +9,7 @@
 class UConversationAsset;
 class UMissionAsset;
 class UFont;
+class USoundBase;
 
 /** Describes one playable city and the language learned there (e.g. Paris / French). */
 UCLASS(BlueprintType)
@@ -67,6 +68,14 @@ public:
 	/** Missions played in order in this city. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Language")
 	TArray<TSoftObjectPtr<UMissionAsset>> Missions;
+
+	/** Looping street ambience played in the city. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Audio")
+	TSoftObjectPtr<USoundBase> AmbientSound;
+
+	/** Looping music played in the city. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Audio")
+	TSoftObjectPtr<USoundBase> MusicSound;
 
 	/** Conversations that belong to this city (for tooling). */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Language")

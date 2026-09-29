@@ -9,6 +9,7 @@
 class UCameraComponent;
 class USpringArmComponent;
 class UCoverComponent;
+class UOcclusionFadeComponent;
 
 /**
  *  A controllable top-down perspective character
@@ -31,6 +32,10 @@ private:
 	/** The spy's cover meter (LinguaSpy) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCoverComponent> Cover;
+
+	/** Fades scenery that blocks the top-down view (LinguaSpy) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UOcclusionFadeComponent> OcclusionFade;
 
 public:
 

@@ -14,6 +14,7 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Engine/GameInstance.h"
+#include "LinguaSpyAudio.h"
 
 #define LOCTEXT_NAMESPACE "LinguaSpyHUD"
 
@@ -40,7 +41,7 @@ void USpyHUDWidget::BuildDefaultLayout()
 
 	// Top-left: cover meter + objective
 	UBorder* Panel = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("CoverPanel"));
-	Panel->SetBrushColor(PanelBg);
+	LinguaSpyStyle::StyleBorder(Panel, PanelBg, LinguaSpyStyle::PanelRadius);
 	Panel->SetPadding(FMargin(16.f, 12.f));
 	if (UCanvasPanelSlot* PanelSlot = Root->AddChildToCanvas(Panel))
 	{
@@ -94,7 +95,7 @@ void USpyHUDWidget::BuildDefaultLayout()
 
 	// Top-centre banner
 	BannerPanel = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("BannerPanel"));
-	BannerPanel->SetBrushColor(PanelBg);
+	LinguaSpyStyle::StyleBorder(BannerPanel, PanelBg, LinguaSpyStyle::PanelRadius);
 	BannerPanel->SetPadding(FMargin(40.f, 18.f));
 	if (UCanvasPanelSlot* BannerSlot = Root->AddChildToCanvas(BannerPanel))
 	{
@@ -162,6 +163,17 @@ void USpyHUDWidget::NativeDestruct()
 void USpyHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	constexpr float PulseDuration = 0.35f;
+	if (BannerPulseTime >= 0.f && BannerPanel)
+	{
+		BannerPulseTime += InDeltaTime;
+		BannerPanel->SetRenderScale(FVector2D(FMath::Lerp(0.7f, 1.f, LinguaSpyStyle::EaseOutBack(BannerPulseTime / PulseDuration))));
+		if (BannerPulseTime >= PulseDuration)
+		{
+			BannerPulseTime = -1.f;
+			BannerPanel->SetRenderScale(FVector2D(1.f));
+		}
+	}
 	if (BannerTimeLeft > 0.f)
 	{
 		BannerTimeLeft -= InDeltaTime;
@@ -207,6 +219,7 @@ void USpyHUDWidget::ShowBanner(const FText& Title, const FText& Subtitle, float 
 		BannerPanel->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 	BannerTimeLeft = Duration;
+	BannerPulseTime = 0.f;
 }
 
 void USpyHUDWidget::HandleCoverChanged(float NewCover, float MaxCover)
@@ -251,16 +264,19 @@ void USpyHUDWidget::HandleMissionStarted(UMissionAsset* Mission)
 
 void USpyHUDWidget::HandleMissionCompleted(UMissionAsset* Mission)
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::MissionComplete);
 	ShowBanner(LOCTEXT("MissionComplete", "MISSION COMPLETE"), Mission ? Mission->Title : FText::GetEmpty(), 5.f);
 }
 
 void USpyHUDWidget::HandleMissionFailed(UMissionAsset* Mission)
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::CoverBlown);
 	ShowBanner(LOCTEXT("MissionFailed", "COVER BURNED"), LOCTEXT("MissionFailedSub", "Your handler resets the operation. Try again."), 5.f);
 }
 
 void USpyHUDWidget::HandleCityCompleted()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::MissionComplete);
 	ShowBanner(LOCTEXT("CityComplete", "CITY CLEARED"), LOCTEXT("CityCompleteSub", "Every mission here is done. Press P to return to the menu."), 6.f);
 }
 

@@ -89,6 +89,11 @@ protected:
 	virtual void NativeOnInitialized() override;
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	/** The panel that slides in when a conversation starts. */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UWidget> Panel;
 
 private:
 
@@ -166,4 +171,5 @@ private:
 	FText CurrentReadingLine;
 	FWordTileChallenge CurrentChallenge;
 	bool bTilesLocked = false;
+	float SlideTime = -1.f;
 };

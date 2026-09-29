@@ -3,6 +3,7 @@
 #include "MenuGameMode.h"
 #include "MainMenuWidget.h"
 #include "MissionSubsystem.h"
+#include "LinguaSpyAudio.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
@@ -21,6 +22,9 @@ void AMenuGameMode::BeginPlay()
 	{
 		Missions->LeaveCity();
 	}
+
+	const ULinguaSpyAudioSettings* Audio = GetDefault<ULinguaSpyAudioSettings>();
+	LinguaSpyAudio::PlayLoop(this, Audio->MenuMusic, Audio->MusicVolume);
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (!PC || !MenuWidgetClass)

@@ -53,6 +53,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Tile")
 	void SetLocked(bool bLocked);
 
+	/** Little scale pop (on spawn / when moved). */
+	void PlayPop();
+
+	/** Side-to-side shake (wrong answer). */
+	void PlayShake();
+
 	/** True while the tile sits in the answer row rather than the bank. */
 	bool bInAnswer = false;
 
@@ -68,6 +74,7 @@ protected:
 	TObjectPtr<UTextBlock> ReadingText;
 
 	virtual void NativeOnInitialized() override;
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 private:
 
@@ -75,4 +82,6 @@ private:
 	void HandleClicked();
 
 	FString Word;
+	float PopTime = -1.f;
+	float ShakeTime = -1.f;
 };

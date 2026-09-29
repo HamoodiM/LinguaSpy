@@ -4,6 +4,8 @@
 #include "SentenceGrader.h"
 #include "MissionAsset.h"
 #include "LinguaSpySaveGame.h"
+#include "NpcCharacter.h"
+#include "ConversationAsset.h"
 #include "Kismet/GameplayStatics.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -190,6 +192,43 @@ bool FLinguaSpySaveRoundTripTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("Completed"), LoadedParis->CompletedMissions.Num(), 1);
 	}
 	TestFalse(TEXT("Setting"), Loaded->Settings.bShowReadings);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLinguaSpyNpcConversationResolveTest, "LinguaSpy.NpcConversationResolve", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FLinguaSpyNpcConversationResolveTest::RunTest(const FString& Parameters)
+{
+	UConversationAsset* Retry = NewObject<UConversationAsset>();
+	UConversationAsset* Mission2 = NewObject<UConversationAsset>();
+	UConversationAsset* TargetOnly = NewObject<UConversationAsset>();
+
+	TArray<FNpcConversationOption> Options;
+	FNpcConversationOption RetryOption;
+	RetryOption.Conversation = Retry;
+	RetryOption.RequiredFlags = { TEXT("LostTail") };
+	Options.Add(RetryOption);
+
+	FNpcConversationOption Mission2Option;
+	Mission2Option.Conversation = Mission2;
+	Mission2Option.RequiredMission = TEXT("Paris_Croissant");
+	Options.Add(Mission2Option);
+
+	FNpcConversationOption TargetOption;
+	TargetOption.Conversation = TargetOnly;
+	TargetOption.bOnlyIfCurrentTarget = true;
+	TargetOption.BlockedFlags = { TEXT("Done") };
+	Options.Add(TargetOption);
+
+	auto NoFlags = [](FName) { return false; };
+	auto LostTail = [](FName Flag) { return Flag == TEXT("LostTail"); };
+	auto Done = [](FName Flag) { return Flag == TEXT("Done"); };
+
+	TestEqual(TEXT("Flag option wins first"), ANpcCharacter::ChooseConversationOption(Options, TEXT("Paris_Croissant"), true, LostTail), 0);
+	TestEqual(TEXT("Mission option"), ANpcCharacter::ChooseConversationOption(Options, TEXT("Paris_Croissant"), false, NoFlags), 1);
+	TestEqual(TEXT("Wrong mission skips"), ANpcCharacter::ChooseConversationOption(Options, TEXT("Paris_FirstContact"), false, NoFlags), INDEX_NONE);
+	TestEqual(TEXT("Target-only option"), ANpcCharacter::ChooseConversationOption(Options, TEXT("Paris_FirstContact"), true, NoFlags), 2);
+	TestEqual(TEXT("Blocked flag skips"), ANpcCharacter::ChooseConversationOption(Options, TEXT("Paris_FirstContact"), true, Done), INDEX_NONE);
 	return true;
 }
 

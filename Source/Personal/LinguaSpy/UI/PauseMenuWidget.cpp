@@ -3,6 +3,7 @@
 #include "PauseMenuWidget.h"
 #include "LinguaSpySaveSubsystem.h"
 #include "LinguaSpyStyle.h"
+#include "LinguaSpyAudio.h"
 #include "MissionSubsystem.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -39,13 +40,13 @@ void UPauseMenuWidget::BuildDefaultLayout()
 	using namespace LinguaSpyStyle;
 
 	UBorder* Dim = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Dim"));
-	Dim->SetBrushColor(FLinearColor(0.f, 0.f, 0.f, 0.55f));
+	LinguaSpyStyle::StyleBorder(Dim, FLinearColor(0.f, 0.f, 0.f, 0.55f), 0.f);
 	Dim->SetHorizontalAlignment(HAlign_Center);
 	Dim->SetVerticalAlignment(VAlign_Center);
 	WidgetTree->RootWidget = Dim;
 
 	UBorder* Panel = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Panel"));
-	Panel->SetBrushColor(PanelBg);
+	LinguaSpyStyle::StyleBorder(Panel, PanelBg, LinguaSpyStyle::PanelRadius);
 	Panel->SetPadding(FMargin(40.f, 30.f));
 	Dim->SetContent(Panel);
 
@@ -63,6 +64,7 @@ void UPauseMenuWidget::BuildDefaultLayout()
 	auto MakeButton = [this, Column](const TCHAR* Name, UTextBlock*& OutLabel) -> UButton*
 	{
 		UButton* Button = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), Name);
+		LinguaSpyStyle::StyleButton(Button, LinguaSpyStyle::ButtonRadius);
 		Button->SetBackgroundColor(LinguaSpyStyle::Accent);
 		OutLabel = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
 		LinguaSpyStyle::StyleText(OutLabel, 18, LinguaSpyStyle::TileText, true);
@@ -111,11 +113,13 @@ void UPauseMenuWidget::RefreshLabels()
 
 void UPauseMenuWidget::HandleResume()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	OnResume.Broadcast();
 }
 
 void UPauseMenuWidget::HandleHelper()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (ULinguaSpySaveSubsystem* Save = GetGameInstance()->GetSubsystem<ULinguaSpySaveSubsystem>())
 	{
 		Save->SetHelperEnabled(!Save->GetSettings().bHelperEnabled);
@@ -125,6 +129,7 @@ void UPauseMenuWidget::HandleHelper()
 
 void UPauseMenuWidget::HandleReadings()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (ULinguaSpySaveSubsystem* Save = GetGameInstance()->GetSubsystem<ULinguaSpySaveSubsystem>())
 	{
 		Save->SetShowReadings(!Save->GetSettings().bShowReadings);
@@ -134,6 +139,7 @@ void UPauseMenuWidget::HandleReadings()
 
 void UPauseMenuWidget::HandleMenu()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (UMissionSubsystem* Missions = GetGameInstance()->GetSubsystem<UMissionSubsystem>())
 	{
 		Missions->LeaveCity();

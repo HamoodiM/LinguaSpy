@@ -17,6 +17,7 @@ void UWordTileWidget::NativeOnInitialized()
 	if (!WidgetTree->RootWidget)
 	{
 		TileButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("TileButton"));
+		LinguaSpyStyle::StyleButton(TileButton, LinguaSpyStyle::ButtonRadius);
 		WidgetTree->RootWidget = TileButton;
 
 		UVerticalBox* Stack = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("Stack"));
@@ -48,6 +49,49 @@ void UWordTileWidget::NativeOnInitialized()
 	}
 	SetReading(FString());
 	SetTileState(EWordTileState::Neutral);
+	PlayPop();
+}
+
+void UWordTileWidget::PlayPop()
+{
+	PopTime = 0.f;
+	SetRenderScale(FVector2D(0.6f));
+}
+
+void UWordTileWidget::PlayShake()
+{
+	ShakeTime = 0.f;
+}
+
+void UWordTileWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	constexpr float PopDuration = 0.22f;
+	if (PopTime >= 0.f)
+	{
+		PopTime += InDeltaTime;
+		const float Scale = FMath::Lerp(0.6f, 1.f, LinguaSpyStyle::EaseOutBack(PopTime / PopDuration));
+		SetRenderScale(FVector2D(Scale));
+		if (PopTime >= PopDuration)
+		{
+			PopTime = -1.f;
+			SetRenderScale(FVector2D(1.f));
+		}
+	}
+
+	constexpr float ShakeDuration = 0.4f;
+	if (ShakeTime >= 0.f)
+	{
+		ShakeTime += InDeltaTime;
+		const float Falloff = 1.f - FMath::Clamp(ShakeTime / ShakeDuration, 0.f, 1.f);
+		SetRenderTranslation(FVector2D(FMath::Sin(ShakeTime * 55.f) * 7.f * Falloff, 0.f));
+		if (ShakeTime >= ShakeDuration)
+		{
+			ShakeTime = -1.f;
+			SetRenderTranslation(FVector2D::ZeroVector);
+		}
+	}
 }
 
 void UWordTileWidget::SetWord(const FString& InWord)

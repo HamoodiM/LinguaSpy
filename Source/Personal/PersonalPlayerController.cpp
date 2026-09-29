@@ -127,7 +127,9 @@ void APersonalPlayerController::HandleConversationStarted(ANpcCharacter* Npc)
 	StopMovement();
 	if (HUDWidget)
 	{
-		HUDWidget->SetHint(FText::Format(NSLOCTEXT("LinguaSpy", "TalkingHint", "Talking to {0}. Stay in character."), Npc ? Npc->GetDisplayName() : FText::GetEmpty()));
+		HUDWidget->SetHint(Npc
+			? FText::Format(NSLOCTEXT("LinguaSpy", "TalkingHint", "Talking to {0}. Stay in character."), Npc->GetDisplayName())
+			: NSLOCTEXT("LinguaSpy", "TalkingHintNoNpc", "Talking. Stay in character."));
 	}
 }
 

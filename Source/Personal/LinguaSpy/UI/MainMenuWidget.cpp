@@ -5,6 +5,7 @@
 #include "LanguagePackAsset.h"
 #include "LinguaSpySaveSubsystem.h"
 #include "LinguaSpyStyle.h"
+#include "LinguaSpyAudio.h"
 #include "MissionSubsystem.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -48,7 +49,7 @@ void UMainMenuWidget::BuildDefaultLayout()
 	using namespace LinguaSpyStyle;
 
 	UBorder* Background = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Background"));
-	Background->SetBrushColor(FLinearColor(PanelBg.R, PanelBg.G, PanelBg.B, 0.55f));
+	LinguaSpyStyle::StyleBorder(Background, FLinearColor(PanelBg.R, PanelBg.G, PanelBg.B, 0.55f), 0.f);
 	Background->SetPadding(FMargin(60.f, 50.f));
 	Background->SetHorizontalAlignment(HAlign_Center);
 	Background->SetVerticalAlignment(VAlign_Center);
@@ -91,6 +92,7 @@ void UMainMenuWidget::BuildDefaultLayout()
 	auto MakeButton = [this, Buttons](const FText& Label, const TCHAR* Name) -> UButton*
 	{
 		UButton* Button = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), Name);
+		LinguaSpyStyle::StyleButton(Button, LinguaSpyStyle::ButtonRadius);
 		Button->SetBackgroundColor(LinguaSpyStyle::Accent);
 		UTextBlock* Text = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass());
 		LinguaSpyStyle::StyleText(Text, 18, LinguaSpyStyle::TileText, true);
@@ -143,6 +145,7 @@ void UMainMenuWidget::RefreshCards()
 
 void UMainMenuWidget::HandleCityChosen(ULanguagePackAsset* Pack)
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::MenuSelect);
 	if (!Pack || Pack->CityMap.IsNull())
 	{
 		return;
@@ -156,6 +159,7 @@ void UMainMenuWidget::HandleCityChosen(ULanguagePackAsset* Pack)
 
 void UMainMenuWidget::HandleReset()
 {
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	// Two clicks to confirm
 	if (!bResetArmed)
 	{

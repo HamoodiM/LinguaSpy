@@ -21,7 +21,8 @@ public class Personal : ModuleRules
 			"Niagara",
 			"UMG",
 			"Slate",
-			"SlateCore"
+			"SlateCore",
+			"DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
@@ -41,7 +42,9 @@ public class Personal : ModuleRules
 			"Personal/LinguaSpy/Interaction",
 			"Personal/LinguaSpy/UI",
 			"Personal/LinguaSpy/Mission",
-			"Personal/LinguaSpy/Save"
+			"Personal/LinguaSpy/Save",
+			"Personal/LinguaSpy/Camera",
+			"Personal/LinguaSpy/Audio"
 		});
 
 		// Uncomment if you are using Slate UI

@@ -27,6 +27,7 @@ void UCityCardWidget::NativeOnInitialized()
 		WidgetTree->RootWidget = CardSize;
 
 		CardButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("CardButton"));
+		LinguaSpyStyle::StyleButton(CardButton, LinguaSpyStyle::CardRadius);
 		CardSize->SetContent(CardButton);
 
 		UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());

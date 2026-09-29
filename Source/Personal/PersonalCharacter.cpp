@@ -11,6 +11,7 @@
 #include "Materials/Material.h"
 #include "Engine/World.h"
 #include "CoverComponent.h"
+#include "OcclusionFadeComponent.h"
 
 APersonalCharacter::APersonalCharacter()
 {
@@ -49,6 +50,9 @@ APersonalCharacter::APersonalCharacter()
 
 	// Create the cover meter
 	Cover = CreateDefaultSubobject<UCoverComponent>(TEXT("Cover"));
+
+	// Fade buildings/awnings between the camera and the spy
+	OcclusionFade = CreateDefaultSubobject<UOcclusionFadeComponent>(TEXT("OcclusionFade"));
 
 	// Activate ticking in order to update the cursor every frame.
 	PrimaryActorTick.bCanEverTick = true;
