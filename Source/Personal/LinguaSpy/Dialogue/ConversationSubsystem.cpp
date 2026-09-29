@@ -8,6 +8,8 @@
 #include "MissionSubsystem.h"
 #include "NpcCharacter.h"
 #include "SentenceGrader.h"
+#include "SpacedRepetitionSubsystem.h"
+#include "LinguaSpySaveSubsystem.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Personal.h"
@@ -50,6 +52,8 @@ bool UConversationSubsystem::BeginConversation(ANpcCharacter* Npc, UConversation
 	ActiveCover = PlayerCover;
 	FailedItems.Reset();
 	PracticeQueue.Reset();
+	RevealedNodes.Reset();
+	TallyChallenges = TallyMistakes = TallyPeeks = 0;
 	Mode = EConversationMode::Conversation;
 
 	if (PlayerCover)
@@ -60,6 +64,116 @@ bool UConversationSubsystem::BeginConversation(ANpcCharacter* Npc, UConversation
 	OnConversationStarted.Broadcast(Npc);
 	EnterNode(StartNode);
 	return true;
+}
+
+bool UConversationSubsystem::StartReviewSession(const TArray<FSrsItemKey>& Items)
+{
+	if (IsActive())
+	{
+		return false;
+	}
+
+	ReviewConversations.Reset();
+	PracticeQueue.Reset();
+	for (const FSrsItemKey& Key : Items)
+	{
+		UConversationAsset* Conversation = Cast<UConversationAsset>(Key.Conversation.TryLoad());
+		if (Conversation && Conversation->FindChallenge(Key.NodeId, Key.ChoiceIndex))
+		{
+			ReviewConversations.AddUnique(Conversation);
+			PracticeQueue.AddUnique({ Conversation, Key.NodeId, Key.ChoiceIndex });
+		}
+	}
+	if (PracticeQueue.IsEmpty())
+	{
+		ReviewConversations.Reset();
+		return false;
+	}
+
+	ActiveNpc.Reset();
+	ActiveCover.Reset();
+	ActiveConversation = PracticeQueue[0].Conversation;
+	FailedItems.Reset();
+	ReviewAttempted.Reset();
+	RevealedNodes.Reset();
+	ReviewTotal = PracticeQueue.Num();
+	ReviewPassed = 0;
+	TallyChallenges = TallyMistakes = TallyPeeks = 0;
+	Mode = EConversationMode::Review;
+
+	OnConversationStarted.Broadcast(nullptr);
+	EnterPracticeItem();
+	return true;
+}
+
+bool UConversationSubsystem::StartReviewForCity(FName CityId, int32 Max)
+{
+	const USpacedRepetitionSubsystem* Srs = GetGameInstanceSubsystem<USpacedRepetitionSubsystem>(GetWorld());
+	return Srs && StartReviewSession(Srs->BuildReviewQueue(CityId, Max));
+}
+
+void UConversationSubsystem::FinishReview()
+{
+	const int32 Passed = ReviewPassed;
+	const int32 Total = ReviewTotal;
+	if (ULinguaSpySaveSubsystem* Save = GetGameInstanceSubsystem<ULinguaSpySaveSubsystem>(GetWorld()))
+	{
+		Save->RequestSave();
+	}
+	OnReviewFinished.Broadcast(Passed, Total);
+	EndConversation();
+}
+
+void UConversationSubsystem::RevealTranslation()
+{
+	if (!IsActive() || CurrentNodeId.IsNone() || RevealedNodes.Contains(CurrentNodeId))
+	{
+		return;
+	}
+	RevealedNodes.Add(CurrentNodeId);
+	if (Mode == EConversationMode::Conversation)
+	{
+		++TallyPeeks;
+	}
+}
+
+bool UConversationSubsystem::IsTranslationRevealed() const
+{
+	if (const ULinguaSpySaveSubsystem* Save = GetGameInstanceSubsystem<ULinguaSpySaveSubsystem>(GetWorld()))
+	{
+		if (Save->GetSettings().bAlwaysShowTranslation)
+		{
+			return true;
+		}
+	}
+	return RevealedNodes.Contains(CurrentNodeId);
+}
+
+void UConversationSubsystem::GetFluencyTally(int32& OutChallenges, int32& OutMistakes, int32& OutPeeks) const
+{
+	OutChallenges = TallyChallenges;
+	OutMistakes = TallyMistakes;
+	OutPeeks = TallyPeeks;
+}
+
+bool UConversationSubsystem::IsAssistedAnswer() const
+{
+	// After a cover-blown drill the player has already been shown the model answer
+	return Mode == EConversationMode::Practice || IsTranslationRevealed();
+}
+
+void UConversationSubsystem::RecordSrs(const FWordTileChallenge& Challenge, bool bPassed)
+{
+	USpacedRepetitionSubsystem* Srs = GetGameInstanceSubsystem<USpacedRepetitionSubsystem>(GetWorld());
+	if (!Srs || !ActiveConversation)
+	{
+		return;
+	}
+	FSrsItemKey Key;
+	Key.Conversation = FSoftObjectPath(ActiveConversation);
+	Key.NodeId = CurrentNodeId;
+	Key.ChoiceIndex = ActiveChoice;
+	Srs->RecordResult(Key, GetCityId(), Challenge.SkillTag, bPassed, IsAssistedAnswer());
 }
 
 ULanguagePackAsset* UConversationSubsystem::GetActiveLanguage() const
@@ -144,6 +258,11 @@ bool UConversationSubsystem::SelectChoice(int32 ChoiceIndex)
 
 void UConversationSubsystem::EnterPracticeItem()
 {
+	if (PracticeQueue.IsEmpty() && Mode == EConversationMode::Review)
+	{
+		FinishReview();
+		return;
+	}
 	if (PracticeQueue.IsEmpty())
 	{
 		// Drill complete: restore cover, then either restart or let the mission branch
@@ -165,6 +284,11 @@ void UConversationSubsystem::EnterPracticeItem()
 	}
 
 	const FConversationPracticeItem Item = PracticeQueue[0];
+	if (Mode == EConversationMode::Review)
+	{
+		ActiveConversation = Item.Conversation;
+		RevealedNodes.Reset();
+	}
 	EnterNode(Item.NodeId);
 	if (Item.ChoiceIndex != INDEX_NONE)
 	{
@@ -186,7 +310,7 @@ FGradeResult UConversationSubsystem::SubmitAnswer(const TArray<FString>& Tokens)
 {
 	const FWordTileChallenge* Challenge = GetActiveChallenge();
 	if (!Challenge || bAwaitingContinueAfterGrade
-		|| (Mode != EConversationMode::Conversation && Mode != EConversationMode::Practice))
+		|| (Mode != EConversationMode::Conversation && Mode != EConversationMode::Practice && Mode != EConversationMode::Review))
 	{
 		return FGradeResult();
 	}
@@ -195,9 +319,30 @@ FGradeResult UConversationSubsystem::SubmitAnswer(const TArray<FString>& Tokens)
 	bLastAnswerPassed = Result.bPassed;
 	bAwaitingContinueAfterGrade = true;
 
-	if (ULanguageProgressSubsystem* Progress = GetGameInstanceSubsystem<ULanguageProgressSubsystem>(GetWorld()))
+	// Only the first attempt at a review item counts (retries later in the same session would inflate its box)
+	bool bRecord = true;
+	if (Mode == EConversationMode::Review)
 	{
-		Progress->RecordResult(GetCityId(), Challenge->SkillTag, Result.bPassed);
+		const FConversationPracticeItem Item{ ActiveConversation, CurrentNodeId, ActiveChoice };
+		bRecord = !ReviewAttempted.Contains(Item);
+		if (bRecord)
+		{
+			ReviewAttempted.Add(Item);
+			ReviewPassed += Result.bPassed ? 1 : 0;
+		}
+	}
+	if (bRecord)
+	{
+		if (ULanguageProgressSubsystem* Progress = GetGameInstanceSubsystem<ULanguageProgressSubsystem>(GetWorld()))
+		{
+			Progress->RecordResult(GetCityId(), Challenge->SkillTag, Result.bPassed);
+		}
+		RecordSrs(*Challenge, Result.bPassed);
+	}
+	if (Mode == EConversationMode::Conversation)
+	{
+		++TallyChallenges;
+		TallyMistakes += Result.bPassed ? 0 : 1;
 	}
 
 	FString ModelAnswer;
@@ -222,7 +367,7 @@ FGradeResult UConversationSubsystem::SubmitAnswer(const TArray<FString>& Tokens)
 		}
 		else
 		{
-			FailedItems.AddUnique({ CurrentNodeId, ActiveChoice });
+			FailedItems.AddUnique({ ActiveConversation, CurrentNodeId, ActiveChoice });
 			if (Cover)
 			{
 				Cover->ApplyPenalty(Challenge->CoverPenalty); // may trigger HandleCoverBlown
@@ -257,6 +402,7 @@ void UConversationSubsystem::Continue()
 		return;
 
 	case EConversationMode::Practice:
+	case EConversationMode::Review:
 		if (bAwaitingContinueAfterGrade && PracticeQueue.Num() > 0)
 		{
 			const FConversationPracticeItem Item = PracticeQueue[0];
@@ -342,6 +488,20 @@ void UConversationSubsystem::EndConversation()
 	{
 		Cover->OnCoverBlown.RemoveDynamic(this, &UConversationSubsystem::HandleCoverBlown);
 	}
+
+	// Conversations with a real NPC count towards the active mission's fluency grade (side chats and walking away too)
+	if (ActiveNpc.IsValid() && (TallyChallenges > 0 || TallyPeeks > 0))
+	{
+		if (UMissionSubsystem* Missions = GetGameInstanceSubsystem<UMissionSubsystem>(GetWorld()))
+		{
+			Missions->AddFluencyTally(TallyChallenges, TallyMistakes, TallyPeeks);
+		}
+	}
+	TallyChallenges = TallyMistakes = TallyPeeks = 0;
+	RevealedNodes.Reset();
+	ReviewConversations.Reset();
+	ReviewAttempted.Reset();
+	ReviewTotal = ReviewPassed = 0;
 	Mode = EConversationMode::None;
 	ActiveConversation = nullptr;
 	ActiveNpc.Reset();

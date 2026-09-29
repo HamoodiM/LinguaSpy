@@ -4,6 +4,7 @@
 #include "CoverComponent.h"
 #include "LinguaSpyStyle.h"
 #include "MissionSubsystem.h"
+#include "FluencyScoring.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/CanvasPanel.h"
@@ -177,7 +178,13 @@ void USpyHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	if (BannerTimeLeft > 0.f)
 	{
 		BannerTimeLeft -= InDeltaTime;
-		if (BannerTimeLeft <= 0.f && BannerPanel)
+		if (BannerTimeLeft <= 0.f && BannerQueue.Num() > 0)
+		{
+			const FPendingBanner Next = BannerQueue[0];
+			BannerQueue.RemoveAt(0);
+			DisplayBanner(Next.Title, Next.Subtitle, Next.Duration);
+		}
+		else if (BannerTimeLeft <= 0.f && BannerPanel)
 		{
 			BannerPanel->SetVisibility(ESlateVisibility::Collapsed);
 		}
@@ -207,6 +214,16 @@ void USpyHUDWidget::SetHint(const FText& Hint)
 }
 
 void USpyHUDWidget::ShowBanner(const FText& Title, const FText& Subtitle, float Duration)
+{
+	if (BannerTimeLeft > 0.f)
+	{
+		BannerQueue.Add({ Title, Subtitle, Duration });
+		return;
+	}
+	DisplayBanner(Title, Subtitle, Duration);
+}
+
+void USpyHUDWidget::DisplayBanner(const FText& Title, const FText& Subtitle, float Duration)
 {
 	if (BannerTitle) { BannerTitle->SetText(Title); }
 	if (BannerSubtitle)
@@ -265,7 +282,25 @@ void USpyHUDWidget::HandleMissionStarted(UMissionAsset* Mission)
 void USpyHUDWidget::HandleMissionCompleted(UMissionAsset* Mission)
 {
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::MissionComplete);
-	ShowBanner(LOCTEXT("MissionComplete", "MISSION COMPLETE"), Mission ? Mission->Title : FText::GetEmpty(), 5.f);
+	const UMissionSubsystem* Missions = GetMissionSubsystem();
+	if (!Missions || !Mission)
+	{
+		ShowBanner(LOCTEXT("MissionComplete", "MISSION COMPLETE"), Mission ? Mission->Title : FText::GetEmpty(), 5.f);
+		return;
+	}
+
+	// Debrief: fluency grade for this run, plus the best one on record
+	const FMissionGrade Grade = Missions->GetLastMissionGrade();
+	FMissionGrade Best;
+	Missions->GetBestGrade(Mission->MissionId, Best);
+	const FText Verdict = Grade.Grade == 0 ? LOCTEXT("VerdictS", "Flawless - not a single slip, no help needed.")
+		: Grade.Grade == 1 ? LOCTEXT("VerdictA", "Smooth. The locals never suspected a thing.")
+		: Grade.Grade == 2 ? LOCTEXT("VerdictB", "You got through, with your handler's help.")
+		: LOCTEXT("VerdictC", "Mission done - but you leaned on the helper. Drill in the Safe house.");
+	ShowBanner(FText::Format(LOCTEXT("MissionCompleteGrade", "MISSION COMPLETE - GRADE {0}"), UFluencyScoring::GradeLetter(Grade.Grade)),
+		FText::Format(LOCTEXT("Debrief", "{0}\n{1}\n{2} answers, {3} mistakes, {4} translations peeked.  Best: {5}"),
+			Mission->Title, Verdict, Grade.Challenges, Grade.Mistakes, Grade.Peeks, UFluencyScoring::GradeLetter(Best.Grade)),
+		7.f);
 }
 
 void USpyHUDWidget::HandleMissionFailed(UMissionAsset* Mission)

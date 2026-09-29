@@ -21,7 +21,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCityCompleted);
  *  Progress is stored in the save profile.
  */
 UCLASS()
-class UMissionSubsystem : public UGameInstanceSubsystem
+class PERSONAL_API UMissionSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 
@@ -82,6 +82,23 @@ public:
 	/** True if any flag is set. */
 	bool HasAnyFlag(const TArray<FName>& Flags) const;
 
+	// ---- Fluency (helper reliance) ---------------------------------------------------------------------------
+
+	/** Adds a finished NPC conversation's tallies to the active mission's fluency grade. */
+	void AddFluencyTally(int32 Challenges, int32 Mistakes, int32 Peeks);
+
+	/** Tallies so far for the active mission (reset when a mission starts, restarts or the city is re-entered). */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Mission")
+	FMissionGrade GetCurrentMissionTally() const { return MissionTally; }
+
+	/** Grade of the most recently completed mission (valid during/after OnMissionCompleted). */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Mission")
+	FMissionGrade GetLastMissionGrade() const { return LastGrade; }
+
+	/** Best grade ever achieved in a mission. Returns false if it was never completed. */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Mission")
+	bool GetBestGrade(FName MissionId, FMissionGrade& OutGrade) const;
+
 	// ---- Reports from the world -----------------------------------------------------------------------------
 
 	void ReportConversationFinished(FName NpcTargetId, FName Outcome);
@@ -122,4 +139,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<UMissionAsset> ActiveMission;
+
+	FMissionGrade MissionTally;
+	FMissionGrade LastGrade;
 };

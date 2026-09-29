@@ -3,6 +3,7 @@
 #include "MissionSubsystem.h"
 #include "LanguagePackAsset.h"
 #include "LinguaSpySaveSubsystem.h"
+#include "FluencyScoring.h"
 #include "Engine/AssetManager.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "Kismet/GameplayStatics.h"
@@ -76,6 +77,7 @@ void UMissionSubsystem::EnterCityForWorld(UWorld* World)
 
 	CurrentPack = Pack;
 	ActiveMission = nullptr;
+	MissionTally = FMissionGrade();
 	if (!CurrentPack)
 	{
 		UE_LOG(LogPersonal, Warning, TEXT("No language pack uses map '%s'"), *MapName);
@@ -238,6 +240,7 @@ void UMissionSubsystem::StartMission(UMissionAsset* Mission)
 		return;
 	}
 	ActiveMission = Mission;
+	MissionTally = FMissionGrade();
 	Progress->ActiveMission = Mission->MissionId;
 	Progress->CurrentObjective = Mission->StartObjective;
 	Progress->MissionFlags.Reset();
@@ -273,6 +276,20 @@ void UMissionSubsystem::CompleteObjective(FName Outcome)
 	{
 		UMissionAsset* Completed = ActiveMission;
 		Progress->CompletedMissions.AddUnique(Completed->MissionId);
+
+		// Fluency grade for this run; keep the best one in the profile
+		LastGrade = MissionTally;
+		LastGrade.Grade = UFluencyScoring::ComputeGrade(MissionTally.Challenges, MissionTally.Mistakes, MissionTally.Peeks);
+		if (ULinguaSpySaveGame* Save = SaveSubsystem ? SaveSubsystem->GetSave() : nullptr)
+		{
+			FMissionGrade* Best = Save->BestGrades.Find(Completed->MissionId);
+			if (!Best || LastGrade.Grade < Best->Grade)
+			{
+				Save->BestGrades.Add(Completed->MissionId, LastGrade);
+			}
+		}
+		UE_LOG(LogPersonal, Log, TEXT("Mission '%s' graded %s (%d challenges, %d mistakes, %d peeks)"), *Completed->MissionId.ToString(),
+			*UFluencyScoring::GradeLetter(LastGrade.Grade).ToString(), LastGrade.Challenges, LastGrade.Mistakes, LastGrade.Peeks);
 		OnMissionCompleted.Broadcast(Completed);
 		StartNextMission();
 	}
@@ -288,6 +305,29 @@ void UMissionSubsystem::CompleteObjective(FName Outcome)
 		SaveProgress();
 		OnObjectiveChanged.Broadcast();
 	}
+}
+
+// ---- Fluency ----------------------------------------------------------------------------------------------------
+
+void UMissionSubsystem::AddFluencyTally(int32 Challenges, int32 Mistakes, int32 Peeks)
+{
+	if (ActiveMission)
+	{
+		MissionTally.Challenges += Challenges;
+		MissionTally.Mistakes += Mistakes;
+		MissionTally.Peeks += Peeks;
+	}
+}
+
+bool UMissionSubsystem::GetBestGrade(FName MissionId, FMissionGrade& OutGrade) const
+{
+	const ULinguaSpySaveGame* Save = SaveSubsystem ? SaveSubsystem->GetSave() : nullptr;
+	const FMissionGrade* Best = Save ? Save->BestGrades.Find(MissionId) : nullptr;
+	if (Best)
+	{
+		OutGrade = *Best;
+	}
+	return Best != nullptr;
 }
 
 // ---- Reports from the world -------------------------------------------------------------------------------------

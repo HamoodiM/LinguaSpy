@@ -7,6 +7,9 @@
 #include "LinguaSpyStyle.h"
 #include "LinguaSpyAudio.h"
 #include "MissionSubsystem.h"
+#include "PhrasebookWidget.h"
+#include "PracticeScreenWidget.h"
+#include "SettingsWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -34,6 +37,7 @@ void UMainMenuWidget::NativeOnInitialized()
 	{
 		BuildDefaultLayout();
 	}
+	if (SettingsButton) { SettingsButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleSettings); }
 	if (ResetButton) { ResetButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleReset); }
 	if (QuitButton) { QuitButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleQuit); }
 }
@@ -107,6 +111,7 @@ void UMainMenuWidget::BuildDefaultLayout()
 		}
 		return Button;
 	};
+	SettingsButton = MakeButton(LOCTEXT("Settings", "Settings"), TEXT("SettingsButton"));
 	ResetButton = MakeButton(LOCTEXT("Reset", "Reset progress"), TEXT("ResetButton"));
 	QuitButton = MakeButton(LOCTEXT("Quit", "Quit"), TEXT("QuitButton"));
 	AddCentered(Buttons, 16.f);
@@ -135,6 +140,8 @@ void UMainMenuWidget::RefreshCards()
 		UCityCardWidget* Card = CreateWidget<UCityCardWidget>(this, CardClass);
 		Card->SetPack(Pack, Completed, Total);
 		Card->OnCardClicked.AddDynamic(this, &UMainMenuWidget::HandleCityChosen);
+		Card->OnPracticeClicked.AddDynamic(this, &UMainMenuWidget::HandlePractice);
+		Card->OnPhrasebookClicked.AddDynamic(this, &UMainMenuWidget::HandlePhrasebook);
 		CardBox->AddChildToWrapBox(Card);
 	}
 	if (StatusText)
@@ -155,6 +162,43 @@ void UMainMenuWidget::HandleCityChosen(ULanguagePackAsset* Pack)
 		Missions->SelectLanguagePack(Pack);
 	}
 	UGameplayStatics::OpenLevelBySoftObjectPtr(this, Pack->CityMap);
+}
+
+void UMainMenuWidget::HandlePractice(ULanguagePackAsset* Pack)
+{
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::MenuSelect);
+	if (UPracticeScreenWidget* Practice = CreateWidget<UPracticeScreenWidget>(GetOwningPlayer(), UPracticeScreenWidget::StaticClass()))
+	{
+		Practice->OnClosed.AddDynamic(this, &UMainMenuWidget::HandleOverlayClosed);
+		Practice->Open();
+		Practice->SetPack(Pack);
+	}
+}
+
+void UMainMenuWidget::HandlePhrasebook(ULanguagePackAsset* Pack)
+{
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+	if (UPhrasebookWidget* Phrasebook = CreateWidget<UPhrasebookWidget>(GetOwningPlayer(), UPhrasebookWidget::StaticClass()))
+	{
+		Phrasebook->OnClosed.AddDynamic(this, &UMainMenuWidget::HandleOverlayClosed);
+		Phrasebook->SetPack(Pack);
+		Phrasebook->Open();
+	}
+}
+
+void UMainMenuWidget::HandleSettings()
+{
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+	if (USettingsWidget* Settings = CreateWidget<USettingsWidget>(GetOwningPlayer(), USettingsWidget::StaticClass()))
+	{
+		Settings->OnClosed.AddDynamic(this, &UMainMenuWidget::HandleOverlayClosed);
+		Settings->Open();
+	}
+}
+
+void UMainMenuWidget::HandleOverlayClosed()
+{
+	RefreshCards();
 }
 
 void UMainMenuWidget::HandleReset()

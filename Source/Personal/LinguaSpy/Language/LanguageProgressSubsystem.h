@@ -14,7 +14,7 @@ class ULinguaSpySaveSubsystem;
  *  Stats live in the save profile; keys are "<CityId>.<SkillTag>".
  */
 UCLASS()
-class ULanguageProgressSubsystem : public UGameInstanceSubsystem
+class PERSONAL_API ULanguageProgressSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 

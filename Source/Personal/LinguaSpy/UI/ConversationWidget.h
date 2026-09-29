@@ -151,7 +151,9 @@ private:
 	void RefreshHelperAndReadings();
 	void ApplyNativeFont(UTextBlock* Text, int32 Size) const;
 
+	/** Whether the helper's translation of the current line is visible (tapped Translate, or "always show"). */
 	bool IsHelperEnabled() const;
+	void SetButtonLabel(UButton* Button, const FText& Label) const;
 	bool ShouldShowReadings() const;
 
 	UPROPERTY()

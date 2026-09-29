@@ -28,7 +28,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="HUD")
 	void SetHint(const FText& Hint);
 
-	/** Shows a large centred message for a few seconds. */
+	/** Shows a large centred message for a few seconds (queued behind a banner that is still showing). */
 	UFUNCTION(BlueprintCallable, Category="HUD")
 	void ShowBanner(const FText& Title, const FText& Subtitle, float Duration = 4.f);
 
@@ -85,6 +85,16 @@ private:
 
 	UFUNCTION()
 	void HandleCityCompleted();
+
+	void DisplayBanner(const FText& Title, const FText& Subtitle, float Duration);
+
+	struct FPendingBanner
+	{
+		FText Title;
+		FText Subtitle;
+		float Duration = 4.f;
+	};
+	TArray<FPendingBanner> BannerQueue;
 
 	TWeakObjectPtr<UCoverComponent> BoundCover;
 	float BannerTimeLeft = 0.f;

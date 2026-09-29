@@ -4,9 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DeveloperSettings.h"
+#include "Subsystems/GameInstanceSubsystem.h"
 #include "LinguaSpyAudio.generated.h"
 
 class USoundBase;
+class UAudioComponent;
+class ULinguaSpySaveSubsystem;
 
 UENUM(BlueprintType)
 enum class ESpyUISound : uint8
@@ -18,6 +21,14 @@ enum class ESpyUISound : uint8
 	CoverBlown,
 	MissionComplete,
 	MenuSelect
+};
+
+/** Mixer channel of a looping sound (each has its own volume slider). */
+UENUM(BlueprintType)
+enum class ESpyAudioChannel : uint8
+{
+	Music,
+	Ambience
 };
 
 /** Project Settings -> Game -> LinguaSpy Audio. Sounds are loaded on first use. */
@@ -55,6 +66,7 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category="Music")
 	TSoftObjectPtr<USoundBase> MenuMusic;
 
+	/** Base mix levels; the player's volume sliders (save settings) multiply these. */
 	UPROPERTY(Config, EditAnywhere, Category="Mix", meta=(ClampMin="0", ClampMax="2"))
 	float UIVolume = 0.8f;
 
@@ -63,6 +75,53 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, Category="Mix", meta=(ClampMin="0", ClampMax="2"))
 	float MusicVolume = 0.35f;
+
+	/** Fade time for looping music/ambience when a level starts. */
+	UPROPERTY(Config, EditAnywhere, Category="Mix", meta=(ClampMin="0"))
+	float LoopFadeInSeconds = 1.5f;
+};
+
+/**
+ *  Plays UI one-shots and level loops at (project mix level x player slider x master).
+ *  Keeps track of the live loops so slider changes apply immediately.
+ */
+UCLASS()
+class PERSONAL_API ULinguaSpyAudioSubsystem : public UGameInstanceSubsystem
+{
+	GENERATED_BODY()
+
+public:
+
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
+
+	void PlayUI(const UObject* WorldContext, ESpyUISound Sound) const;
+
+	/** Spawns a 2D loop that stops when its level unloads. The sound asset itself must be set to loop. */
+	UAudioComponent* PlayLoop(const UObject* WorldContext, const TSoftObjectPtr<USoundBase>& Sound, ESpyAudioChannel Channel);
+
+	/** Effective volume for a channel right now. */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Audio")
+	float GetChannelVolume(ESpyAudioChannel Channel) const;
+
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Audio")
+	float GetUIVolume() const;
+
+	/** Re-applies the save's volume settings to every live loop. */
+	UFUNCTION()
+	void ApplyVolumes();
+
+private:
+
+	struct FLiveLoop
+	{
+		TWeakObjectPtr<UAudioComponent> Component;
+		ESpyAudioChannel Channel;
+	};
+	TArray<FLiveLoop> Loops;
+
+	UPROPERTY()
+	TObjectPtr<ULinguaSpySaveSubsystem> SaveSubsystem;
 };
 
 namespace LinguaSpyAudio
@@ -71,5 +130,5 @@ namespace LinguaSpyAudio
 	PERSONAL_API void PlayUI(const UObject* WorldContext, ESpyUISound Sound);
 
 	/** Spawns a looping 2D sound (ambience/music) that stops when the level unloads. */
-	PERSONAL_API void PlayLoop(const UObject* WorldContext, const TSoftObjectPtr<USoundBase>& Sound, float Volume);
+	PERSONAL_API void PlayLoop(const UObject* WorldContext, const TSoftObjectPtr<USoundBase>& Sound, ESpyAudioChannel Channel);
 }

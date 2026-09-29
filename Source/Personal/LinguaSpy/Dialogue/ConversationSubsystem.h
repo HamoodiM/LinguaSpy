@@ -22,15 +22,24 @@ enum class EConversationMode : uint8
 	/** Cover was blown; waiting for the player to acknowledge. */
 	CoverBlown,
 	/** Replaying failed challenges without cover pressure. */
-	Practice
+	Practice,
+	/** Spaced-repetition review from the Safe house (no NPC, no cover, no mission). */
+	Review
 };
 
-/** A failed challenge to replay in a practice drill (ChoiceIndex is set for PlayerChoice nodes). */
+/**
+ *  A challenge to replay in a practice drill or review (ChoiceIndex is set for PlayerChoice nodes).
+ *  Conversation is kept alive by ActiveConversation / ReviewConversations.
+ */
 struct FConversationPracticeItem
 {
+	UConversationAsset* Conversation = nullptr;
 	FName NodeId;
 	int32 ChoiceIndex = INDEX_NONE;
-	bool operator==(const FConversationPracticeItem& Other) const { return NodeId == Other.NodeId && ChoiceIndex == Other.ChoiceIndex; }
+	bool operator==(const FConversationPracticeItem& Other) const
+	{
+		return Conversation == Other.Conversation && NodeId == Other.NodeId && ChoiceIndex == Other.ChoiceIndex;
+	}
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnConversationStarted, ANpcCharacter*, Npc);
@@ -39,6 +48,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnConversationNodeEntered, const F
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnChallengeReady, const FWordTileChallenge&, Challenge);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAnswerGraded, const FGradeResult&, Result, const FString&, ModelAnswer);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnConversationCoverBlown);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnReviewFinished, int32, Passed, int32, Total);
+
+struct FSrsItemKey;
 
 /**
  *  Drives one conversation at a time:
@@ -73,6 +85,10 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="Conversation")
 	FOnConversationCoverBlown OnCoverBlown;
 
+	/** A review session ran out of items (first-attempt passes / items). Broadcast right before OnConversationEnded. */
+	UPROPERTY(BlueprintAssignable, Category="Conversation")
+	FOnReviewFinished OnReviewFinished;
+
 	/** Starts talking to the NPC. Returns false if busy or the NPC has no conversation. */
 	UFUNCTION(BlueprintCallable, Category="Conversation")
 	bool StartConversation(ANpcCharacter* Npc, UCoverComponent* PlayerCover);
@@ -83,6 +99,28 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Conversation")
 	bool StartConversationFromAsset(UConversationAsset* Conversation, FName StartNodeOverride, UCoverComponent* PlayerCover);
+
+	/** Starts a spaced-repetition review of the given challenges (Safe house). Returns false if busy or nothing resolves. */
+	bool StartReviewSession(const TArray<FSrsItemKey>& Items);
+
+	/** Python/Blueprint wrapper: reviews up to Max items for a city (due first, then weakest). */
+	UFUNCTION(BlueprintCallable, Category="Conversation")
+	bool StartReviewForCity(FName CityId, int32 Max = 10);
+
+	/**
+	 *  The player taps "Translate" on the current line. The first reveal per node counts as a peek
+	 *  (lowers the fluency grade; answers on this node count as assisted for spaced repetition).
+	 */
+	UFUNCTION(BlueprintCallable, Category="Conversation")
+	void RevealTranslation();
+
+	/** Whether the helper's translation of the current line is revealed (tapped, or "always show" is on). */
+	UFUNCTION(BlueprintPure, Category="Conversation")
+	bool IsTranslationRevealed() const;
+
+	/** Tallies for the running conversation (graded answers, wrong answers, peeks). */
+	UFUNCTION(BlueprintPure, Category="Conversation")
+	void GetFluencyTally(int32& OutChallenges, int32& OutMistakes, int32& OutPeeks) const;
 
 	/** Picks an option at a PlayerChoice node. */
 	UFUNCTION(BlueprintCallable, Category="Conversation")
@@ -120,6 +158,10 @@ public:
 	UFUNCTION(BlueprintPure, Category="Conversation")
 	int32 GetPracticeRemaining() const { return PracticeQueue.Num(); }
 
+	/** Items in the running review session (for "3 / 10" counters). */
+	UFUNCTION(BlueprintPure, Category="Conversation")
+	int32 GetReviewTotal() const { return ReviewTotal; }
+
 	/** Cover restored for each correct answer during a conversation. */
 	UPROPERTY(EditAnywhere, Category="Conversation")
 	float CoverRecoveryOnPass = 5.f;
@@ -131,6 +173,9 @@ private:
 	bool BeginConversation(ANpcCharacter* Npc, UConversationAsset* Conversation, FName StartNode, UCoverComponent* PlayerCover);
 	void EnterNode(FName NodeId);
 	void EnterPracticeItem();
+	void FinishReview();
+	bool IsAssistedAnswer() const;
+	void RecordSrs(const FWordTileChallenge& Challenge, bool bPassed);
 	void FinishConversation(FName Outcome);
 	const FConversationNode* GetCurrentNode() const;
 	const FWordTileChallenge* GetActiveChallenge() const;
@@ -161,4 +206,19 @@ private:
 
 	/** Remaining practice challenges. */
 	TArray<FConversationPracticeItem> PracticeQueue;
+
+	/** Conversations used by the running review (keeps them loaded). */
+	UPROPERTY()
+	TArray<TObjectPtr<UConversationAsset>> ReviewConversations;
+
+	/** Review items already graded once this session (only first attempts feed spaced repetition). */
+	TArray<FConversationPracticeItem> ReviewAttempted;
+	int32 ReviewTotal = 0;
+	int32 ReviewPassed = 0;
+
+	/** Nodes whose translation the player revealed in this conversation. */
+	TSet<FName> RevealedNodes;
+	int32 TallyChallenges = 0;
+	int32 TallyMistakes = 0;
+	int32 TallyPeeks = 0;
 };

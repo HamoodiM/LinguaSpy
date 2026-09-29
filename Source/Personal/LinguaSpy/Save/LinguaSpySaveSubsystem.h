@@ -13,7 +13,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLinguaSpySettingsChanged);
  *  Owns the single save profile. Other subsystems read/write it via GetSave() and call RequestSave().
  */
 UCLASS()
-class ULinguaSpySaveSubsystem : public UGameInstanceSubsystem
+class PERSONAL_API ULinguaSpySaveSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
 
@@ -36,10 +36,17 @@ public:
 	const FLinguaSpySettings& GetSettings() const { return Save->Settings; }
 
 	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
-	void SetHelperEnabled(bool bEnabled);
+	void SetAlwaysShowTranslation(bool bAlways);
 
 	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
 	void SetShowReadings(bool bShow);
+
+	/** Channel volumes in 0..1. Broadcasts OnSettingsChanged; saved when the settings screen closes (SaveSettings). */
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
+	void SetVolumes(float Master, float Music, float Ambience, float UI);
+
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
+	void SaveSettings() { RequestSave(); }
 
 	UPROPERTY(BlueprintAssignable, Category="LinguaSpy|Save")
 	FOnLinguaSpySettingsChanged OnSettingsChanged;

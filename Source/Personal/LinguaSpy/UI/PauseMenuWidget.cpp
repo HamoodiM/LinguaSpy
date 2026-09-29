@@ -5,6 +5,9 @@
 #include "LinguaSpyStyle.h"
 #include "LinguaSpyAudio.h"
 #include "MissionSubsystem.h"
+#include "PhrasebookWidget.h"
+#include "SettingsWidget.h"
+#include "FluencyScoring.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -29,10 +32,23 @@ void UPauseMenuWidget::NativeOnInitialized()
 		BuildDefaultLayout();
 	}
 	if (ResumeButton)   { ResumeButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleResume); }
-	if (HelperButton)   { HelperButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleHelper); }
-	if (ReadingsButton) { ReadingsButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleReadings); }
+	if (PhrasebookButton) { PhrasebookButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandlePhrasebook); }
+	if (SettingsButton)   { SettingsButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleSettings); }
 	if (MenuButton)     { MenuButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleMenu); }
 	RefreshLabels();
+}
+
+void UPauseMenuWidget::NativeDestruct()
+{
+	for (const TWeakObjectPtr<UOverlayPanelWidget>& Overlay : OpenOverlays)
+	{
+		if (Overlay.IsValid() && Overlay->IsInViewport())
+		{
+			Overlay->Close();
+		}
+	}
+	OpenOverlays.Reset();
+	Super::NativeDestruct();
 }
 
 void UPauseMenuWidget::BuildDefaultLayout()
@@ -61,6 +77,15 @@ void UPauseMenuWidget::BuildDefaultLayout()
 		TitleSlot->SetHorizontalAlignment(HAlign_Center);
 	}
 
+	TallyText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("TallyText"));
+	StyleText(TallyText, 15, TextMuted);
+	TallyText->SetJustification(ETextJustify::Center);
+	if (UVerticalBoxSlot* TallySlot = Column->AddChildToVerticalBox(TallyText))
+	{
+		TallySlot->SetHorizontalAlignment(HAlign_Center);
+		TallySlot->SetPadding(FMargin(0.f, 6.f, 0.f, 0.f));
+	}
+
 	auto MakeButton = [this, Column](const TCHAR* Name, UTextBlock*& OutLabel) -> UButton*
 	{
 		UButton* Button = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), Name);
@@ -84,31 +109,32 @@ void UPauseMenuWidget::BuildDefaultLayout()
 	UTextBlock* MenuLabel = nullptr;
 	ResumeButton = MakeButton(TEXT("ResumeButton"), ResumeLabel);
 	ResumeLabel->SetText(LOCTEXT("Resume", "Resume"));
-	UTextBlock* Helper = nullptr;
-	HelperButton = MakeButton(TEXT("HelperButton"), Helper);
-	HelperLabel = Helper;
-	UTextBlock* Readings = nullptr;
-	ReadingsButton = MakeButton(TEXT("ReadingsButton"), Readings);
-	ReadingsLabel = Readings;
+	UTextBlock* PhrasebookLabel = nullptr;
+	PhrasebookButton = MakeButton(TEXT("PhrasebookButton"), PhrasebookLabel);
+	PhrasebookLabel->SetText(LOCTEXT("Phrasebook", "Phrasebook"));
+	UTextBlock* SettingsLabel = nullptr;
+	SettingsButton = MakeButton(TEXT("SettingsButton"), SettingsLabel);
+	SettingsLabel->SetText(LOCTEXT("Settings", "Settings"));
 	MenuButton = MakeButton(TEXT("MenuButton"), MenuLabel);
 	MenuLabel->SetText(LOCTEXT("Menu", "Return to menu"));
 }
 
 void UPauseMenuWidget::RefreshLabels()
 {
-	const ULinguaSpySaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<ULinguaSpySaveSubsystem>() : nullptr;
-	if (!Save)
+	const UMissionSubsystem* Missions = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMissionSubsystem>() : nullptr;
+	if (!TallyText)
 	{
 		return;
 	}
-	if (HelperLabel)
+	if (!Missions || !Missions->GetActiveMission())
 	{
-		HelperLabel->SetText(Save->GetSettings().bHelperEnabled ? LOCTEXT("HelperOn", "Helper translation: ON") : LOCTEXT("HelperOff", "Helper translation: OFF"));
+		TallyText->SetText(FText::GetEmpty());
+		return;
 	}
-	if (ReadingsLabel)
-	{
-		ReadingsLabel->SetText(Save->GetSettings().bShowReadings ? LOCTEXT("ReadingsOn", "Show romaji: ON") : LOCTEXT("ReadingsOff", "Show romaji: OFF"));
-	}
+	const FMissionGrade Tally = Missions->GetCurrentMissionTally();
+	TallyText->SetText(FText::Format(LOCTEXT("Tally", "{0}: {1} answers, {2} mistakes, {3} peeks - on track for {4}"),
+		Missions->GetActiveMission()->Title, Tally.Challenges, Tally.Mistakes, Tally.Peeks,
+		UFluencyScoring::GradeLetter(UFluencyScoring::ComputeGrade(Tally.Challenges, Tally.Mistakes, Tally.Peeks))));
 }
 
 void UPauseMenuWidget::HandleResume()
@@ -117,24 +143,26 @@ void UPauseMenuWidget::HandleResume()
 	OnResume.Broadcast();
 }
 
-void UPauseMenuWidget::HandleHelper()
+void UPauseMenuWidget::HandlePhrasebook()
 {
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
-	if (ULinguaSpySaveSubsystem* Save = GetGameInstance()->GetSubsystem<ULinguaSpySaveSubsystem>())
+	UMissionSubsystem* Missions = GetGameInstance()->GetSubsystem<UMissionSubsystem>();
+	if (UPhrasebookWidget* Phrasebook = CreateWidget<UPhrasebookWidget>(GetOwningPlayer(), UPhrasebookWidget::StaticClass()))
 	{
-		Save->SetHelperEnabled(!Save->GetSettings().bHelperEnabled);
+		Phrasebook->SetPack(Missions ? Missions->GetCurrentPack() : nullptr);
+		Phrasebook->Open();
+		OpenOverlays.Add(Phrasebook);
 	}
-	RefreshLabels();
 }
 
-void UPauseMenuWidget::HandleReadings()
+void UPauseMenuWidget::HandleSettings()
 {
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
-	if (ULinguaSpySaveSubsystem* Save = GetGameInstance()->GetSubsystem<ULinguaSpySaveSubsystem>())
+	if (USettingsWidget* Settings = CreateWidget<USettingsWidget>(GetOwningPlayer(), USettingsWidget::StaticClass()))
 	{
-		Save->SetShowReadings(!Save->GetSettings().bShowReadings);
+		Settings->Open();
+		OpenOverlays.Add(Settings);
 	}
-	RefreshLabels();
 }
 
 void UPauseMenuWidget::HandleMenu()

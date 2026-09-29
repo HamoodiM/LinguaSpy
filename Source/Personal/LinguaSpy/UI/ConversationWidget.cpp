@@ -93,8 +93,16 @@ ULinguaSpySaveSubsystem* UConversationWidget::GetSaveSubsystem() const
 
 bool UConversationWidget::IsHelperEnabled() const
 {
-	const ULinguaSpySaveSubsystem* Save = GetSaveSubsystem();
-	return !Save || Save->GetSettings().bHelperEnabled;
+	const UConversationSubsystem* Conversations = GetConversationSubsystem();
+	return Conversations && Conversations->IsTranslationRevealed();
+}
+
+void UConversationWidget::SetButtonLabel(UButton* Button, const FText& Label) const
+{
+	if (UTextBlock* Text = Button ? Cast<UTextBlock>(Button->GetChildAt(0)) : nullptr)
+	{
+		Text->SetText(Label);
+	}
 }
 
 bool UConversationWidget::ShouldShowReadings() const
@@ -228,7 +236,7 @@ void UConversationWidget::BuildDefaultLayout()
 			ButtonSlot->SetPadding(FMargin(0.f, 0.f, 10.f, 0.f));
 		}
 	};
-	HelperToggleButton = MakeButton(LOCTEXT("HelperToggle", "Helper"), TEXT("HelperToggleButton"));
+	HelperToggleButton = MakeButton(LOCTEXT("HelperToggle", "Translate"), TEXT("HelperToggleButton"));
 	AddButton(HelperToggleButton);
 	ReadingToggleButton = MakeButton(LOCTEXT("ReadingToggle", "Romaji"), TEXT("ReadingToggleButton"));
 	AddButton(ReadingToggleButton);
@@ -269,10 +277,12 @@ void UConversationWidget::HandleConversationStarted(ANpcCharacter* Npc)
 	const UConversationSubsystem* Conversations = GetConversationSubsystem();
 	ActiveLanguage = Conversations ? Conversations->GetActiveLanguage() : nullptr;
 
+	const bool bReview = Conversations && Conversations->GetMode() == EConversationMode::Review;
 	if (SpeakerText)
 	{
-		SpeakerText->SetText(Npc ? Npc->GetDisplayName() : FText::GetEmpty());
+		SpeakerText->SetText(Npc ? Npc->GetDisplayName() : bReview ? LOCTEXT("ReviewSpeaker", "Safe house drill") : FText::GetEmpty());
 	}
+	SetButtonLabel(LeaveButton, bReview ? LOCTEXT("EndSession", "End session") : LOCTEXT("Leave", "Walk away"));
 	if (ReadingToggleButton)
 	{
 		ReadingToggleButton->SetVisibility(ActiveLanguage && ActiveLanguage->bHasReadings ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
@@ -328,7 +338,10 @@ void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConv
 		const UConversationSubsystem* Conversations = GetConversationSubsystem();
 		ModeText->SetText(Mode == EConversationMode::Practice && Conversations
 			? FText::Format(LOCTEXT("PracticeBanner", "PRACTICE DRILL - {0} left"), Conversations->GetPracticeRemaining())
+			: Mode == EConversationMode::Review && Conversations
+			? FText::Format(LOCTEXT("ReviewBanner", "REVIEW - {0} left"), Conversations->GetPracticeRemaining())
 			: FText::GetEmpty());
+		ModeText->SetColorAndOpacity(FSlateColor(Mode == EConversationMode::Review ? LinguaSpyStyle::TextHelper : LinguaSpyStyle::Danger));
 	}
 	if (FeedbackText)
 	{
@@ -507,7 +520,8 @@ void UConversationWidget::HandleAnswerGraded(const FGradeResult& Result, const F
 	if (FeedbackText)
 	{
 		const UConversationSubsystem* Conversations = GetConversationSubsystem();
-		const bool bPractice = Conversations && Conversations->GetMode() == EConversationMode::Practice;
+		const bool bPractice = Conversations
+			&& (Conversations->GetMode() == EConversationMode::Practice || Conversations->GetMode() == EConversationMode::Review);
 		if (Result.bPassed)
 		{
 			FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::TileCorrect));
@@ -546,9 +560,9 @@ void UConversationWidget::HandleCoverBlown()
 void UConversationWidget::HandleHelperToggle()
 {
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
-	if (ULinguaSpySaveSubsystem* Save = GetSaveSubsystem())
+	if (UConversationSubsystem* Conversations = GetConversationSubsystem())
 	{
-		Save->SetHelperEnabled(!Save->GetSettings().bHelperEnabled);
+		Conversations->RevealTranslation();
 	}
 	RefreshHelperAndReadings();
 }
@@ -576,11 +590,17 @@ void UConversationWidget::HandleReadingToggle()
 
 void UConversationWidget::RefreshHelperAndReadings()
 {
+	const bool bRevealed = IsHelperEnabled();
 	if (HelperText)
 	{
-		HelperText->SetText(IsHelperEnabled()
+		HelperText->SetText(bRevealed
 			? FText::Format(LOCTEXT("HelperFormat", "Helper: \"{0}\""), CurrentHelperLine)
-			: LOCTEXT("HelperHidden", "(Helper muted - click Helper to hear the translation)"));
+			: LOCTEXT("HelperHidden", "(Stuck? Tap Translate and your handler will whisper it - it lowers your fluency grade.)"));
+		HelperText->SetColorAndOpacity(FSlateColor(bRevealed ? LinguaSpyStyle::TextHelper : LinguaSpyStyle::TextMuted));
+	}
+	if (HelperToggleButton)
+	{
+		HelperToggleButton->SetVisibility(bRevealed || CurrentHelperLine.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
 	}
 	if (ReadingLineText)
 	{

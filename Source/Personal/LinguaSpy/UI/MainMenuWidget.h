@@ -27,6 +27,9 @@ protected:
 	TObjectPtr<UWrapBox> CardBox;
 
 	UPROPERTY(BlueprintReadOnly, Category="Menu", meta=(BindWidgetOptional))
+	TObjectPtr<UButton> SettingsButton;
+
+	UPROPERTY(BlueprintReadOnly, Category="Menu", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> ResetButton;
 
 	UPROPERTY(BlueprintReadOnly, Category="Menu", meta=(BindWidgetOptional))
@@ -45,6 +48,19 @@ private:
 
 	UFUNCTION()
 	void HandleCityChosen(ULanguagePackAsset* Pack);
+
+	UFUNCTION()
+	void HandlePractice(ULanguagePackAsset* Pack);
+
+	UFUNCTION()
+	void HandlePhrasebook(ULanguagePackAsset* Pack);
+
+	UFUNCTION()
+	void HandleSettings();
+
+	/** An overlay closed: progress may have changed (review done), so rebuild the cards. */
+	UFUNCTION()
+	void HandleOverlayClosed();
 
 	UFUNCTION()
 	void HandleReset();

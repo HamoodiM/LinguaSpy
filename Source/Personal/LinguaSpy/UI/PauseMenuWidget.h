@@ -8,10 +8,11 @@
 
 class UButton;
 class UTextBlock;
+class UOverlayPanelWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPauseResume);
 
-/** Resume / settings toggles / return to menu. Builds a default layout in C++. */
+/** Resume / phrasebook / settings / return to menu. Builds a default layout in C++. */
 UCLASS()
 class UPauseMenuWidget : public UUserWidget
 {
@@ -26,6 +27,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Pause")
 	TSoftObjectPtr<UWorld> MenuMap;
 
+	/** Refreshes the mission tally line (called when the menu opens). */
 	void RefreshLabels();
 
 protected:
@@ -34,23 +36,25 @@ protected:
 	TObjectPtr<UButton> ResumeButton;
 
 	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
-	TObjectPtr<UButton> HelperButton;
+	TObjectPtr<UButton> PhrasebookButton;
 
 	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
-	TObjectPtr<UTextBlock> HelperLabel;
-
-	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
-	TObjectPtr<UButton> ReadingsButton;
-
-	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
-	TObjectPtr<UTextBlock> ReadingsLabel;
+	TObjectPtr<UButton> SettingsButton;
 
 	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> MenuButton;
 
+	/** "This mission so far: 2 mistakes, 3 peeks". */
+	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
+	TObjectPtr<UTextBlock> TallyText;
+
 	virtual void NativeOnInitialized() override;
+	virtual void NativeDestruct() override;
 
 private:
+
+	/** Phrasebook / settings opened from here; closed together with the pause menu. */
+	TArray<TWeakObjectPtr<UOverlayPanelWidget>> OpenOverlays;
 
 	void BuildDefaultLayout();
 
@@ -58,10 +62,10 @@ private:
 	void HandleResume();
 
 	UFUNCTION()
-	void HandleHelper();
+	void HandlePhrasebook();
 
 	UFUNCTION()
-	void HandleReadings();
+	void HandleSettings();
 
 	UFUNCTION()
 	void HandleMenu();

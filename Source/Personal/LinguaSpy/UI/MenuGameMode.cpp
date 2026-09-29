@@ -23,8 +23,7 @@ void AMenuGameMode::BeginPlay()
 		Missions->LeaveCity();
 	}
 
-	const ULinguaSpyAudioSettings* Audio = GetDefault<ULinguaSpyAudioSettings>();
-	LinguaSpyAudio::PlayLoop(this, Audio->MenuMusic, Audio->MusicVolume);
+	LinguaSpyAudio::PlayLoop(this, GetDefault<ULinguaSpyAudioSettings>()->MenuMusic, ESpyAudioChannel::Music);
 
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (!PC || !MenuWidgetClass)

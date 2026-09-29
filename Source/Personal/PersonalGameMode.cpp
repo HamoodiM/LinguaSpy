@@ -19,9 +19,8 @@ void APersonalGameMode::StartPlay()
 
 		if (const ULanguagePackAsset* Pack = Missions->GetCurrentPack())
 		{
-			const ULinguaSpyAudioSettings* Audio = GetDefault<ULinguaSpyAudioSettings>();
-			LinguaSpyAudio::PlayLoop(this, Pack->AmbientSound, Audio->AmbientVolume);
-			LinguaSpyAudio::PlayLoop(this, Pack->MusicSound, Audio->MusicVolume);
+			LinguaSpyAudio::PlayLoop(this, Pack->AmbientSound, ESpyAudioChannel::Ambience);
+			LinguaSpyAudio::PlayLoop(this, Pack->MusicSound, ESpyAudioChannel::Music);
 		}
 	}
 	Super::StartPlay();
