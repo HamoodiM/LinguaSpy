@@ -8,6 +8,7 @@
 
 class UCameraComponent;
 class USpringArmComponent;
+class UCoverComponent;
 
 /**
  *  A controllable top-down perspective character
@@ -27,6 +28,10 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USpringArmComponent> CameraBoom;
 
+	/** The spy's cover meter (LinguaSpy) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCoverComponent> Cover;
+
 public:
 
 	/** Constructor */
@@ -43,6 +48,9 @@ public:
 
 	/** Returns the Camera Boom component **/
 	USpringArmComponent* GetCameraBoom() const { return CameraBoom.Get(); }
+
+	/** Returns the cover component **/
+	UCoverComponent* GetCover() const { return Cover.Get(); }
 
 };
 

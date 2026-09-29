@@ -11,6 +11,9 @@ class UNiagaraSystem;
 class UInputMappingContext;
 class UInputAction;
 class UPathFollowingComponent;
+class ANpcCharacter;
+class UConversationWidget;
+class USpyHUDWidget;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
@@ -61,6 +64,26 @@ protected:
 	/** Time that the click input has been pressed */
 	float FollowTime = 0.0f;
 
+	/** LinguaSpy: conversation UI class (defaults to the code-built layout) */
+	UPROPERTY(EditAnywhere, Category="LinguaSpy")
+	TSubclassOf<UConversationWidget> ConversationWidgetClass;
+
+	/** LinguaSpy: HUD class (defaults to the code-built layout) */
+	UPROPERTY(EditAnywhere, Category="LinguaSpy")
+	TSubclassOf<USpyHUDWidget> HUDWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UConversationWidget> ConversationWidget;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USpyHUDWidget> HUDWidget;
+
+	/** NPC we are walking towards to talk to */
+	TWeakObjectPtr<ANpcCharacter> PendingTalkTarget;
+
+	/** True if the current click was on an NPC, so it should not also be treated as a move command */
+	bool bClickTargetedNpc = false;
+
 public:
 
 	/** Constructor */
@@ -70,6 +93,19 @@ protected:
 
 	/** Initialize input bindings */
 	virtual void SetupInputComponent() override;
+
+	virtual void BeginPlay() override;
+	virtual void OnPossess(APawn* InPawn) override;
+	virtual void PlayerTick(float DeltaTime) override;
+
+	/** True while a conversation is running (movement input is ignored) */
+	bool IsInConversation() const;
+
+	UFUNCTION()
+	void HandleConversationStarted(ANpcCharacter* Npc);
+
+	UFUNCTION()
+	void HandleConversationEnded();
 	
 	/** Input handlers */
 	void OnInputStarted();

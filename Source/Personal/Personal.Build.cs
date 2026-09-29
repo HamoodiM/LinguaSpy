@@ -20,7 +20,8 @@ public class Personal : ModuleRules
 			"GameplayStateTreeModule",
 			"Niagara",
 			"UMG",
-			"Slate"
+			"Slate",
+			"SlateCore"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
@@ -32,7 +33,13 @@ public class Personal : ModuleRules
 			"Personal/Variant_TwinStick",
 			"Personal/Variant_TwinStick/AI",
 			"Personal/Variant_TwinStick/Gameplay",
-			"Personal/Variant_TwinStick/UI"
+			"Personal/Variant_TwinStick/UI",
+			"Personal/LinguaSpy/Data",
+			"Personal/LinguaSpy/Language",
+			"Personal/LinguaSpy/Dialogue",
+			"Personal/LinguaSpy/Cover",
+			"Personal/LinguaSpy/Interaction",
+			"Personal/LinguaSpy/UI"
 		});
 
 		// Uncomment if you are using Slate UI

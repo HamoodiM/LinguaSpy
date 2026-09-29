@@ -10,6 +10,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Materials/Material.h"
 #include "Engine/World.h"
+#include "CoverComponent.h"
 
 APersonalCharacter::APersonalCharacter()
 {
@@ -41,6 +42,9 @@ APersonalCharacter::APersonalCharacter()
 
 	TopDownCameraComponent->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	TopDownCameraComponent->bUsePawnControlRotation = false;
+
+	// Create the cover meter
+	Cover = CreateDefaultSubobject<UCoverComponent>(TEXT("Cover"));
 
 	// Activate ticking in order to update the cursor every frame.
 	PrimaryActorTick.bCanEverTick = true;

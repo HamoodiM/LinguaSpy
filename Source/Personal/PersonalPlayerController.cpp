@@ -13,6 +13,12 @@
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
 #include "Personal.h"
+#include "NpcCharacter.h"
+#include "CoverComponent.h"
+#include "ConversationSubsystem.h"
+#include "ConversationWidget.h"
+#include "SpyHUDWidget.h"
+#include "Blueprint/UserWidget.h"
 
 APersonalPlayerController::APersonalPlayerController()
 {
@@ -27,6 +33,107 @@ APersonalPlayerController::APersonalPlayerController()
 	DefaultMouseCursor = EMouseCursor::Default;
 	CachedDestination = FVector::ZeroVector;
 	FollowTime = 0.f;
+
+	ConversationWidgetClass = UConversationWidget::StaticClass();
+	HUDWidgetClass = USpyHUDWidget::StaticClass();
+}
+
+void APersonalPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (!IsLocalPlayerController())
+	{
+		return;
+	}
+
+	if (HUDWidgetClass)
+	{
+		HUDWidget = CreateWidget<USpyHUDWidget>(this, HUDWidgetClass);
+		HUDWidget->AddToViewport(0);
+		if (const APersonalCharacter* SpyCharacter = Cast<APersonalCharacter>(GetPawn()))
+		{
+			HUDWidget->BindCover(SpyCharacter->GetCover());
+		}
+	}
+	if (ConversationWidgetClass)
+	{
+		ConversationWidget = CreateWidget<UConversationWidget>(this, ConversationWidgetClass);
+		ConversationWidget->AddToViewport(10);
+	}
+
+	if (UConversationSubsystem* Conversations = GetWorld()->GetSubsystem<UConversationSubsystem>())
+	{
+		Conversations->OnConversationStarted.AddUniqueDynamic(this, &APersonalPlayerController::HandleConversationStarted);
+		Conversations->OnConversationEnded.AddUniqueDynamic(this, &APersonalPlayerController::HandleConversationEnded);
+	}
+
+	FInputModeGameAndUI InputMode;
+	InputMode.SetHideCursorDuringCapture(false);
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+}
+
+void APersonalPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	if (HUDWidget)
+	{
+		if (const APersonalCharacter* SpyCharacter = Cast<APersonalCharacter>(InPawn))
+		{
+			HUDWidget->BindCover(SpyCharacter->GetCover());
+		}
+	}
+}
+
+bool APersonalPlayerController::IsInConversation() const
+{
+	const UConversationSubsystem* Conversations = GetWorld() ? GetWorld()->GetSubsystem<UConversationSubsystem>() : nullptr;
+	return Conversations && Conversations->IsActive();
+}
+
+void APersonalPlayerController::PlayerTick(float DeltaTime)
+{
+	Super::PlayerTick(DeltaTime);
+
+	ANpcCharacter* Npc = PendingTalkTarget.Get();
+	APawn* ControlledPawn = GetPawn();
+	if (!Npc || !ControlledPawn || IsInConversation())
+	{
+		return;
+	}
+
+	const FVector ToNpc = Npc->GetActorLocation() - ControlledPawn->GetActorLocation();
+	if (ToNpc.Size2D() <= Npc->GetTalkRadius())
+	{
+		PendingTalkTarget.Reset();
+		StopMovement();
+		ControlledPawn->SetActorRotation(FRotator(0.f, ToNpc.Rotation().Yaw, 0.f));
+
+		const APersonalCharacter* SpyCharacter = Cast<APersonalCharacter>(ControlledPawn);
+		if (UConversationSubsystem* Conversations = GetWorld()->GetSubsystem<UConversationSubsystem>())
+		{
+			Conversations->StartConversation(Npc, SpyCharacter ? SpyCharacter->GetCover() : nullptr);
+		}
+	}
+}
+
+void APersonalPlayerController::HandleConversationStarted(ANpcCharacter* Npc)
+{
+	StopMovement();
+	if (HUDWidget)
+	{
+		HUDWidget->SetHint(FText::Format(NSLOCTEXT("LinguaSpy", "TalkingHint", "Talking to {0}. Stay in character."), Npc ? Npc->GetDisplayName() : FText::GetEmpty()));
+	}
+}
+
+void APersonalPlayerController::HandleConversationEnded()
+{
+	if (HUDWidget)
+	{
+		HUDWidget->SetHint(NSLOCTEXT("LinguaSpy", "DefaultHint", "Click a local to talk to them."));
+	}
 }
 
 void APersonalPlayerController::SetupInputComponent()
@@ -67,7 +174,27 @@ void APersonalPlayerController::SetupInputComponent()
 
 void APersonalPlayerController::OnInputStarted()
 {
+	bClickTargetedNpc = false;
+	if (IsInConversation())
+	{
+		return;
+	}
+
 	StopMovement();
+	PendingTalkTarget.Reset();
+
+	// Clicking a local walks over to talk to them
+	FHitResult NpcHit;
+	const bool bHit = bIsTouch
+		? GetHitResultUnderFinger(ETouchIndex::Touch1, ECollisionChannel::ECC_Visibility, true, NpcHit)
+		: GetHitResultUnderCursor(ECollisionChannel::ECC_Visibility, true, NpcHit);
+	if (ANpcCharacter* Npc = bHit ? Cast<ANpcCharacter>(NpcHit.GetActor()) : nullptr)
+	{
+		bClickTargetedNpc = true;
+		PendingTalkTarget = Npc;
+		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, Npc->GetActorLocation());
+		return;
+	}
 
 	// Update the move destination to wherever the cursor is pointing at
 	UpdateCachedDestination();
@@ -75,6 +202,11 @@ void APersonalPlayerController::OnInputStarted()
 
 void APersonalPlayerController::OnSetDestinationTriggered()
 {
+	if (bClickTargetedNpc || IsInConversation())
+	{
+		return;
+	}
+
 	// We flag that the input is being pressed
 	FollowTime += GetWorld()->GetDeltaSeconds();
 	
@@ -92,6 +224,13 @@ void APersonalPlayerController::OnSetDestinationTriggered()
 
 void APersonalPlayerController::OnSetDestinationReleased()
 {
+	if (bClickTargetedNpc || IsInConversation())
+	{
+		bClickTargetedNpc = false;
+		FollowTime = 0.f;
+		return;
+	}
+
 	// If it was a short press
 	if (FollowTime <= ShortPressThreshold)
 	{
