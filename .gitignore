@@ -22,3 +22,7 @@ Plugins/**/Intermediate/
 Thumbs.db
 .DS_Store
 *.blend1
+
+# Python
+__pycache__/
+*.pyc

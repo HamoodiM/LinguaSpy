@@ -153,7 +153,7 @@ existing = [EAL.load_asset(DATA + "/" + n) for n in ("DA_Conv_Cafe", "DA_Conv_Ki
 PARIS_MAP = "/Game/LinguaSpy/Maps/Lvl_Paris"
 paris = lc.language_pack(DATA, "DA_Lang_French_Paris", "Paris", "French", "Paris", "fr",
                          "Croissants, cafés and coded whispers.", "8FB8DE", 0,
-                         city_map=PARIS_MAP if EAL.does_asset_exist(PARIS_MAP) else "/Game/LinguaSpy/Maps/Lvl_Paris_Greybox",
+                         city_map=PARIS_MAP,
                          missions=[first_contact, croissant],
                          conversations=existing + [cafe2, kiosk2, metro, bakery, painter, bridge])
 

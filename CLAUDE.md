@@ -22,7 +22,7 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   Tokyo/Japanese, Rome/Italian), main menu + city select, minimal save, Slate conversation editor tool.
 - **Phase 3 (done, see `docs/Phase3_Plan.md`)** — merged Phase 2's M7 (Opération Croissant) + M8 (Madrid/Tokyo/Rome) with the art pass:
   cel-shading + outlines, Blender-modeled characters on the mannequin skeleton, env kits, occlusion fade, UI skin, MetaSound audio, NPC life.
-- **Phase 4** — more cities/languages, spaced-repetition practice, phrasebook, helper-reliance scoring.
+- **Phase 4 (next, see `HANDOFF.md`)** — more cities/languages, spaced-repetition practice, phrasebook, helper-reliance scoring.
 
 ## Code layout & conventions
 - New gameplay code lives in `Source/Personal/LinguaSpy/`:
@@ -68,7 +68,7 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   `APersonalPlayerController`, `APersonalGameMode`). `BP_SpyGameMode` is the project default and the Paris map's override.
 - Startup/default map: `/Game/LinguaSpy/Maps/Lvl_MainMenu` (`AMenuGameMode`, city cards from all `ULanguagePackAsset`s).
   Cities: `Lvl_Paris`, `Lvl_Madrid`, `Lvl_Tokyo`, `Lvl_Rome` (built by the greybox kit; street along X, north = +Y).
-  `Lvl_Paris_Greybox` is the obsolete Phase 1 map (unused). `APersonalGameMode::StartPlay` enters the city (pack whose
+  `APersonalGameMode::StartPlay` enters the city (pack whose
   `CityMap` is this map) and starts ambience.
 - Content: `/Game/LinguaSpy/Data/<Language>/` (conversations, `Missions/`, `DA_Lang_*` packs). Paris: First Contact (tutorial)
   → Opération Croissant. Madrid/Tokyo/Rome: one mission each (`docs/City_Scripts_Review.md`).
@@ -104,7 +104,8 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 ## Known issues / next up
 - Toon post-process thresholds (`PP_Toon` T1/T2/levels) are tuned by eye; revisit per city if lighting changes.
 - Audio is procedural and minimal (MetaSounds); music per city is only the ambience pad for now.
-- Consider Git LFS for `Content/` binaries before the repo grows.
+- Git LFS is enabled for `*.uasset` / `*.umap`.
+- Next phase: see `HANDOFF.md` (Phase 4 planning brief).
 
 ## Build / test
 - Editor must be closed (or use Live Coding for non-header changes) when adding new UCLASSes:

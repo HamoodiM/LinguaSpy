@@ -14,8 +14,6 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
 - [ ] **Try the Conversation Editor** (Tools → LinguaSpy → Conversation Editor). It has never been visually checked.
 
 ## Decisions pending
-- [ ] **Git LFS for `Content/`:** recommended now. The repo holds many binary assets (maps, meshes, MetaSounds).
-- [ ] **Delete `Lvl_Paris_Greybox`?** It's the obsolete Phase 1 map, now replaced by `Lvl_Paris`.
 - [ ] **Japanese font:** the engine fallback renders fine. Optionally swap in Noto Sans JP for a nicer look.
 
 ## Done
@@ -25,4 +23,5 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
 - [x] M6 editor module rebuild (2026-09-29)
 - [x] Paris story draft approved as-is (2026-09-30)
 - [x] Phase 3 Stage 1 C++ rebuild (2026-09-30)
+- [x] Git LFS enabled; `Lvl_Paris_Greybox` deleted (2026-09-30)
 - [x] Reported: characters huge while moving (fixed, FBX root scale) and water flicker (fixed, z-fighting) (2026-09-30)

@@ -14,7 +14,7 @@ MISSIONS = "/Game/LinguaSpy/Data/French/Missions"
 
 paris = lc.language_pack("/Game/LinguaSpy/Data/French", "DA_Lang_French_Paris", "Paris", "French", "Paris", "fr",
                          "Croissants, cafés and coded whispers.", "8FB8DE", 0,
-                         city_map="/Game/LinguaSpy/Maps/Lvl_Paris_Greybox.Lvl_Paris_Greybox")
+                         city_map="/Game/LinguaSpy/Maps/Lvl_Paris")
 
 # --- Café: order a coffee, small talk choice ------------------------------------------------------------------
 cafe = lc.conversation(DATA, "DA_Conv_Cafe", "Café terrace - order a coffee", paris, "c_greet", [
@@ -91,7 +91,7 @@ first_contact = lc.mission(MISSIONS, "MA_Paris_FirstContact", "Paris_FirstContac
 
 paris = lc.language_pack("/Game/LinguaSpy/Data/French", "DA_Lang_French_Paris", "Paris", "French", "Paris", "fr",
                          "Croissants, cafés and coded whispers.", "8FB8DE", 0,
-                         city_map="/Game/LinguaSpy/Maps/Lvl_Paris_Greybox.Lvl_Paris_Greybox",
+                         city_map="/Game/LinguaSpy/Maps/Lvl_Paris",
                          missions=[first_contact], conversations=[cafe, kiosk, kiosk_retry])
 
 # --- Placeholder packs for the other cities (maps + missions arrive in M8) ---------------------------------------
