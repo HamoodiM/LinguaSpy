@@ -214,7 +214,7 @@ def _gameplay(cfg):
     ps = EAS.spawn_actor_from_class(unreal.PlayerStart, V(*cfg["player_start"]), unreal.Rotator(0, 0, 0))
     ps.set_folder_path("Gameplay")
     nav = EAS.spawn_actor_from_class(unreal.NavMeshBoundsVolume, V(cfg.get("nav_center_x", 0), 0, 100))
-    nav.set_actor_scale3d(V((L + 4000) / 200, 3000 / 200, 5))
+    nav.set_actor_scale3d(V((L + 4000) / 200, cfg.get("nav_depth", 7000) / 200, 5))
     nav.set_folder_path("Gameplay")
 
     for n in cfg.get("npcs", []):
