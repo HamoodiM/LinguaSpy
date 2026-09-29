@@ -12,6 +12,11 @@
 				"UMG",
 				"AIModule"
 			]
+		},
+		{
+			"Name": "PersonalEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit"
 		}
 	],
 	"Plugins": [

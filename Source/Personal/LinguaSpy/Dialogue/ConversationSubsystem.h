@@ -47,7 +47,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnConversationCoverBlown);
  *  restarts, or ends with the asset's CoverBlownOutcome so the mission can branch.
  */
 UCLASS()
-class UConversationSubsystem : public UWorldSubsystem
+class PERSONAL_API UConversationSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
 
@@ -76,6 +76,13 @@ public:
 	/** Starts talking to the NPC. Returns false if busy or the NPC has no conversation. */
 	UFUNCTION(BlueprintCallable, Category="Conversation")
 	bool StartConversation(ANpcCharacter* Npc, UCoverComponent* PlayerCover);
+
+	/**
+	 *  Starts a conversation directly from an asset (no NPC), optionally at a specific node.
+	 *  Used by the editor's "Play from node" and for debugging. No mission outcome is reported.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Conversation")
+	bool StartConversationFromAsset(UConversationAsset* Conversation, FName StartNodeOverride, UCoverComponent* PlayerCover);
 
 	/** Picks an option at a PlayerChoice node. */
 	UFUNCTION(BlueprintCallable, Category="Conversation")
@@ -121,6 +128,7 @@ public:
 
 private:
 
+	bool BeginConversation(ANpcCharacter* Npc, UConversationAsset* Conversation, FName StartNode, UCoverComponent* PlayerCover);
 	void EnterNode(FName NodeId);
 	void EnterPracticeItem();
 	void FinishConversation(FName Outcome);

@@ -48,7 +48,7 @@ void UMainMenuWidget::BuildDefaultLayout()
 	using namespace LinguaSpyStyle;
 
 	UBorder* Background = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Background"));
-	Background->SetBrushColor(FLinearColor(PanelBg.R, PanelBg.G, PanelBg.B, 0.85f));
+	Background->SetBrushColor(FLinearColor(PanelBg.R, PanelBg.G, PanelBg.B, 0.55f));
 	Background->SetPadding(FMargin(60.f, 50.f));
 	Background->SetHorizontalAlignment(HAlign_Center);
 	Background->SetVerticalAlignment(VAlign_Center);
@@ -78,6 +78,9 @@ void UMainMenuWidget::BuildDefaultLayout()
 
 	CardBox = WidgetTree->ConstructWidget<UWrapBox>(UWrapBox::StaticClass(), TEXT("CardBox"));
 	CardBox->SetInnerSlotPadding(FVector2D(20.f, 20.f));
+	// Lay cards out in rows instead of one per line
+	CardBox->SetExplicitWrapSize(true);
+	CardBox->SetWrapSize(1180.f);
 	AddCentered(CardBox, 40.f);
 
 	StatusText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("StatusText"));

@@ -13,7 +13,7 @@
  *  but accents are significant ("café" != "cafe").
  */
 UCLASS()
-class USentenceGrader : public UBlueprintFunctionLibrary
+class PERSONAL_API USentenceGrader : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 

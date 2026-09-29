@@ -12,7 +12,7 @@ class UFont;
 
 /** Describes one playable city and the language learned there (e.g. Paris / French). */
 UCLASS(BlueprintType)
-class ULanguagePackAsset : public UPrimaryDataAsset
+class PERSONAL_API ULanguagePackAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 

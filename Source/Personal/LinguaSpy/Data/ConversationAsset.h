@@ -11,7 +11,7 @@ class ULanguagePackAsset;
 
 /** An authored conversation between the spy and one NPC. */
 UCLASS(BlueprintType)
-class UConversationAsset : public UPrimaryDataAsset
+class PERSONAL_API UConversationAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
@@ -44,6 +44,7 @@ public:
 	const FWordTileChallenge* FindChallenge(FName NodeId, int32 ChoiceIndex) const;
 
 	/** Validation problems (dangling links, duplicate ids, answer words missing from tiles...). Empty if valid. */
+	UFUNCTION(BlueprintCallable, Category="Conversation")
 	TArray<FText> Validate() const;
 
 #if WITH_EDITOR

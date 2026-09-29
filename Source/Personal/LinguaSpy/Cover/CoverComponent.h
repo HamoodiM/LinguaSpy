@@ -11,7 +11,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCoverBlown);
 
 /** How convincing the spy's cover is. Drops on language mistakes; at zero the cover is blown. */
 UCLASS(ClassGroup=(LinguaSpy), meta=(BlueprintSpawnableComponent))
-class UCoverComponent : public UActorComponent
+class PERSONAL_API UCoverComponent : public UActorComponent
 {
 	GENERATED_BODY()
 

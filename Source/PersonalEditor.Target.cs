@@ -11,5 +11,6 @@ public class PersonalEditorTarget : TargetRules
 		DefaultBuildSettings = BuildSettingsVersion.V7;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
 		ExtraModuleNames.Add("Personal");
+		ExtraModuleNames.Add("PersonalEditor");
 	}
 }

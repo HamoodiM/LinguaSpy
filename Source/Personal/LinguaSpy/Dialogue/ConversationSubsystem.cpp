@@ -25,6 +25,21 @@ namespace
 bool UConversationSubsystem::StartConversation(ANpcCharacter* Npc, UCoverComponent* PlayerCover)
 {
 	UConversationAsset* Conversation = Npc ? Npc->ResolveConversation() : nullptr;
+	return Conversation && BeginConversation(Npc, Conversation, Conversation->StartNode, PlayerCover);
+}
+
+bool UConversationSubsystem::StartConversationFromAsset(UConversationAsset* Conversation, FName StartNodeOverride, UCoverComponent* PlayerCover)
+{
+	if (!Conversation)
+	{
+		return false;
+	}
+	const FName Start = (!StartNodeOverride.IsNone() && Conversation->FindNode(StartNodeOverride)) ? StartNodeOverride : Conversation->StartNode;
+	return BeginConversation(nullptr, Conversation, Start, PlayerCover);
+}
+
+bool UConversationSubsystem::BeginConversation(ANpcCharacter* Npc, UConversationAsset* Conversation, FName StartNode, UCoverComponent* PlayerCover)
+{
 	if (IsActive() || !Conversation)
 	{
 		return false;
@@ -43,7 +58,7 @@ bool UConversationSubsystem::StartConversation(ANpcCharacter* Npc, UCoverCompone
 	}
 
 	OnConversationStarted.Broadcast(Npc);
-	EnterNode(ActiveConversation->StartNode);
+	EnterNode(StartNode);
 	return true;
 }
 
@@ -306,6 +321,11 @@ void UConversationSubsystem::FinishConversation(FName Outcome)
 	const FName NpcTargetId = ActiveNpc.IsValid() ? ActiveNpc->GetMissionTargetId() : NAME_None;
 	EndConversation();
 
+	// Debug conversations (no NPC) don't affect missions
+	if (NpcTargetId.IsNone())
+	{
+		return;
+	}
 	if (UMissionSubsystem* Missions = GetGameInstanceSubsystem<UMissionSubsystem>(GetWorld()))
 	{
 		Missions->ReportConversationFinished(NpcTargetId, Outcome);

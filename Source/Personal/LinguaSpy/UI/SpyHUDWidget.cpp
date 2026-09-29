@@ -101,10 +101,13 @@ void USpyHUDWidget::BuildDefaultLayout()
 		BannerSlot->SetAnchors(FAnchors(0.5f, 0.f));
 		BannerSlot->SetAlignment(FVector2D(0.5f, 0.f));
 		BannerSlot->SetAutoSize(true);
-		BannerSlot->SetPosition(FVector2D(0.f, 90.f));
+		BannerSlot->SetPosition(FVector2D(0.f, 190.f));
 	}
+	USizeBox* BannerWidth = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass());
+	BannerWidth->SetMaxDesiredWidth(620.f);
+	BannerPanel->SetContent(BannerWidth);
 	UVerticalBox* BannerColumn = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
-	BannerPanel->SetContent(BannerColumn);
+	BannerWidth->SetContent(BannerColumn);
 	BannerTitle = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("BannerTitle"));
 	StyleText(BannerTitle, 30, Accent, true);
 	BannerTitle->SetJustification(ETextJustify::Center);

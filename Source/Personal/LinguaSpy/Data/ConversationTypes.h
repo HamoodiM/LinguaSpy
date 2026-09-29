@@ -7,7 +7,7 @@
 
 /** A single word (or word chunk, for languages without spaces) offered as a tile. */
 USTRUCT(BlueprintType)
-struct FWordTile
+struct PERSONAL_API FWordTile
 {
 	GENERATED_BODY()
 
@@ -22,7 +22,7 @@ struct FWordTile
 
 /** One accepted word order for a challenge (sequence of tile texts). */
 USTRUCT(BlueprintType)
-struct FAcceptedAnswer
+struct PERSONAL_API FAcceptedAnswer
 {
 	GENERATED_BODY()
 
@@ -32,7 +32,7 @@ struct FAcceptedAnswer
 
 /** A reply the player must build from word tiles. */
 USTRUCT(BlueprintType)
-struct FWordTileChallenge
+struct PERSONAL_API FWordTileChallenge
 {
 	GENERATED_BODY()
 
@@ -66,7 +66,7 @@ struct FWordTileChallenge
 
 /** One option at a PlayerChoice node: what the player decides to say, and where it leads. */
 USTRUCT(BlueprintType)
-struct FConversationChoice
+struct PERSONAL_API FConversationChoice
 {
 	GENERATED_BODY()
 
@@ -109,7 +109,7 @@ enum class EConversationNodeType : uint8
 
 /** A single step in a conversation graph. */
 USTRUCT(BlueprintType)
-struct FConversationNode
+struct PERSONAL_API FConversationNode
 {
 	GENERATED_BODY()
 

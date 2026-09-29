@@ -69,7 +69,7 @@ struct FMissionObjective
 
 /** A spy mission: a graph of objectives connected by outcome/flag-based transitions. */
 UCLASS(BlueprintType)
-class UMissionAsset : public UPrimaryDataAsset
+class PERSONAL_API UMissionAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
@@ -104,6 +104,8 @@ public:
 	 */
 	static FName ResolveTransition(const FMissionObjective& Objective, FName Outcome, const TSet<FName>& Flags);
 
+	/** Validation problems (bad links, missing targets...). Empty if valid. */
+	UFUNCTION(BlueprintCallable, Category="Mission")
 	TArray<FText> Validate() const;
 
 #if WITH_EDITOR
