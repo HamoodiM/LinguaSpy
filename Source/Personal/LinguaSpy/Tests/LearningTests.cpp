@@ -136,6 +136,18 @@ bool FLinguaSpySaveMigrationTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Default master volume"), Save->Settings.MasterVolume, FLinguaSpySettings().MasterVolume);
 
 	TestFalse(TEXT("Current version is left alone"), ULinguaSpySaveGame::Migrate(Save));
+
+	// A v1 file never stored its version (it equalled the old default), so it loads as 0
+	ULinguaSpySaveGame* Unversioned = NewObject<ULinguaSpySaveGame>();
+	TestEqual(TEXT("Unset version is 0"), Unversioned->Version, 0);
+	TestTrue(TEXT("Unversioned file migrates"), ULinguaSpySaveGame::Migrate(Unversioned));
+	TestEqual(TEXT("Unversioned -> current"), Unversioned->Version, ULinguaSpySaveGame::CurrentVersion);
+
+	// Round trip: a current profile must come back as current (Version is written because it differs from 0)
+	TArray<uint8> Bytes;
+	UGameplayStatics::SaveGameToMemory(Unversioned, Bytes);
+	const ULinguaSpySaveGame* Loaded = Cast<ULinguaSpySaveGame>(UGameplayStatics::LoadGameFromMemory(Bytes));
+	TestTrue(TEXT("Version survives serialization"), Loaded && Loaded->Version == ULinguaSpySaveGame::CurrentVersion);
 	TestFalse(TEXT("Null is safe"), ULinguaSpySaveGame::Migrate(nullptr));
 	return true;
 }

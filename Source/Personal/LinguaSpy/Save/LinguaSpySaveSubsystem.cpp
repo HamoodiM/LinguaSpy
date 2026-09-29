@@ -17,6 +17,7 @@ void ULinguaSpySaveSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	if (!Save)
 	{
 		Save = Cast<ULinguaSpySaveGame>(UGameplayStatics::CreateSaveGameObject(ULinguaSpySaveGame::StaticClass()));
+		Save->Version = ULinguaSpySaveGame::CurrentVersion;
 	}
 	else
 	{
@@ -43,6 +44,7 @@ void ULinguaSpySaveSubsystem::ResetProgress()
 {
 	const FLinguaSpySettings Settings = Save->Settings;
 	Save = Cast<ULinguaSpySaveGame>(UGameplayStatics::CreateSaveGameObject(ULinguaSpySaveGame::StaticClass()));
+	Save->Version = ULinguaSpySaveGame::CurrentVersion;
 	Save->Settings = Settings;
 	RequestSave();
 }

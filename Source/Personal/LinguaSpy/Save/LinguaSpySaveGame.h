@@ -134,8 +134,13 @@ public:
 	/** Upgrades an older profile in place, one version at a time. Returns true if anything changed. */
 	static bool Migrate(ULinguaSpySaveGame* Save);
 
+	/**
+	 *  Format version of this profile. Defaults to 0 on purpose: SaveGame serialization skips properties equal to the
+	 *  class default, so a default of CurrentVersion would never be written and old files would load as "current".
+	 *  Files written before v2 therefore load as 0 (= v1). Stamped with CurrentVersion on save / creation.
+	 */
 	UPROPERTY()
-	int32 Version = CurrentVersion;
+	int32 Version = 0;
 
 	UPROPERTY()
 	TMap<FName, FSkillStats> SkillStats;
