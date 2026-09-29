@@ -20,7 +20,8 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   translation, word-tile replies, grader, cover meter, cover-blown → practice drill.
 - **Phase 2 (current, see `docs/Phase2_Plan.md`)** — branching missions, 4 cities (Paris/French, Madrid/Spanish,
   Tokyo/Japanese, Rome/Italian), main menu + city select, minimal save, Slate conversation editor tool.
-- **Phase 3** — stylized art pass (toon/flat shading, stylized characters, landmarks, UI skin, camera occlusion fade).
+- **Phase 3 (next, see `docs/Phase3_Plan.md`)** — merges Phase 2's M7 (Opération Croissant) + M8 (Madrid/Tokyo/Rome) with the art pass:
+  cel-shading + outlines, Blender-modeled characters on the mannequin skeleton, env kits, occlusion fade, UI skin, MetaSound audio, NPC life.
 - **Phase 4** — more cities/languages, spaced-repetition practice, phrasebook, helper-reliance scoring.
 
 ## Code layout & conventions
