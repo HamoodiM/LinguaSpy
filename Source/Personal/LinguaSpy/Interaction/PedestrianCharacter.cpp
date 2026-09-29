@@ -54,9 +54,9 @@ void APedestrianCharacter::BeginPlay()
 
 	if (MeshVariants.Num() > 0)
 	{
-		if (USkeletalMesh* Mesh = MeshVariants[FMath::RandRange(0, MeshVariants.Num() - 1)])
+		if (USkeletalMesh* VariantMesh = MeshVariants[FMath::RandRange(0, MeshVariants.Num() - 1)])
 		{
-			GetMesh()->SetSkeletalMesh(Mesh);
+			GetMesh()->SetSkeletalMesh(VariantMesh);
 		}
 	}
 	if (MaterialVariants.Num() > 0)
@@ -79,7 +79,7 @@ void APedestrianCharacter::ScheduleNextWalk()
 void APedestrianCharacter::Walk()
 {
 	AAIController* AI = Cast<AAIController>(GetController());
-	UNavigationSystemV1* Nav = UNavigationSystemV1::GetCurrent<UNavigationSystemV1>(GetWorld());
+	UNavigationSystemV1* Nav = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	if (AI && Nav)
 	{
 		// Only pick a new destination once the previous walk is done
