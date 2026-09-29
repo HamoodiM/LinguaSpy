@@ -15,7 +15,7 @@ from mathutils import Vector, Matrix
 
 SKELETON_FBX = r"C:/UnrealEngineProjects/Personal/Saved/Export/SKM_Manny_Simple.fbx"
 EXPORT_DIR = r"C:/UnrealEngineProjects/Personal/Saved/Export/Characters"
-ARM = "root"
+ARM = "Armature"  # UE skips a node named "Armature"; the real root bone is "root"
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -24,9 +24,12 @@ ARM = "root"
 
 def setup_scene():
     """Imports the mannequin FBX (if needed) and bakes the armature to meter scale with no parent."""
-    if ARM not in bpy.data.objects:
+    if ARM not in bpy.data.objects and "root" not in bpy.data.objects:
         bpy.ops.import_scene.fbx(filepath=SKELETON_FBX, automatic_bone_orientation=False, ignore_leaf_bones=False)
+    if ARM not in bpy.data.objects:
+        bpy.data.objects["root"].name = ARM   # the imported armature object is named after UE's root bone
     arm = bpy.data.objects[ARM]
+    arm.hide_set(False)
     for name in list(bpy.data.objects.keys()):
         if name.startswith("SKM_Manny_Simple_LOD") and name != "SKM_Manny_Simple_LOD0":
             bpy.data.objects.remove(bpy.data.objects[name], do_unlink=True)
@@ -47,6 +50,16 @@ def setup_scene():
     arm.select_set(True)
     bpy.context.view_layer.objects.active = arm
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    # Give the rig a real "root" bone at the origin (parent of pelvis / ik / helper bones), like SK_Mannequin
+    bpy.ops.object.mode_set(mode='EDIT')
+    bones = arm.data.edit_bones
+    if "root" not in bones:
+        root = bones.new("root")
+        root.head, root.tail = (0, 0, 0), (0, 0.2, 0)
+    for b in bones:
+        if b.parent is None and b.name != "root":
+            b.parent = bones["root"]
+    bpy.ops.object.mode_set(mode='OBJECT')
     ref = bpy.data.objects.get("SKM_Manny_Simple_LOD0")
     if ref:
         ref.hide_set(True)
@@ -318,13 +331,18 @@ def export_fbx(name):
         bpy.context.view_layer.objects.active = arm
 
     bake_scale(100.0)
+    # Tell FBX that 1 Blender unit = 1 cm, so no unit conversion ends up on the root bone (UE expects root scale 1)
+    units = bpy.context.scene.unit_settings
+    old_scale_length = units.scale_length
+    units.scale_length = 0.01   # file unit = cm, so Interchange adds no conversion on the root bone
     try:
         bpy.ops.export_scene.fbx(filepath=path, use_selection=True, object_types={'ARMATURE', 'MESH'},
-                                 apply_unit_scale=False, global_scale=1.0, apply_scale_options='FBX_SCALE_NONE',
+                                 apply_unit_scale=True, global_scale=1.0, apply_scale_options='FBX_SCALE_NONE',
                                  add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X',
                                  armature_nodetype='NULL', bake_anim=False, mesh_smooth_type='FACE',
                                  colors_type='SRGB', use_armature_deform_only=False)
     finally:
+        units.scale_length = old_scale_length
         bake_scale(0.01)
     return path
 
