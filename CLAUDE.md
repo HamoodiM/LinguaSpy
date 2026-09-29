@@ -100,6 +100,8 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 - The first `shot showui` after starting PIE often captures the editor viewport — take a second shot.
 - Blender MCP: never leave the armature hidden when running `transform_apply` (it silently skips hidden objects).
 - Stacked flat slabs at the same top height z-fight (flicker) — keep water/plazas a few cm above road/sidewalk.
+- **Git LFS:** if the editor logs `Package is unloadable ... Invalid value for PACKAGE_FILE_TAG`, the working copy holds LFS
+  pointer files (e.g. after `git lfs migrate`). Close the editor and run `git lfs checkout` (objects are in `.git/lfs/objects`).
 
 ## Known issues / next up
 - Toon post-process thresholds (`PP_Toon` T1/T2/levels) are tuned by eye; revisit per city if lighting changes.

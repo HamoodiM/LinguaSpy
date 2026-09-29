@@ -1,4 +1,5 @@
-"""Procedural LinguaSpy audio (MetaSounds, via VibeUE MetaSoundService). No downloaded assets.
+"""DEPRECATED (Phase 4): replaced by audio_import_cc0.py (CC0 samples). These sustained pure-tone MetaSounds sounded harsh.
+Procedural LinguaSpy audio (MetaSounds, via VibeUE MetaSoundService). No downloaded assets.
     exec(open(r"C:/UnrealEngineProjects/Personal/Tools/Content/audio_setup.py", encoding="utf-8").read())
     build_all_audio()
 """

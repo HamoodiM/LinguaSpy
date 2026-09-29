@@ -60,3 +60,44 @@ The plan is in `docs/Phase4_Plan.md`. This log records the calls I made while ex
 - **Mission debrief:** I used the existing HUD banner (now queued) rather than a separate panel. It's less UI, and the banner already pulses.
 - **Items appear in the phrasebook** only after at least one pass (assisted passes included). Failed-only items still show up in Safe house reviews.
 - **The Safe house is only reachable from the city card** (menu). In a city, the pause menu offers the phrasebook and settings.
+
+## Incident: assets were Git LFS pointers (2026-09-29)
+- **Symptom:** after the rebuild, the editor launched "very broken". Every `.uasset`/`.umap` failed with `Package is unloadable … Invalid value for PACKAGE_FILE_TAG`.
+- **Cause:** the working copy held 131-byte LFS pointer files. This was left over from enabling Git LFS (the history rewrite at reflog `HEAD@{2}`). All 660 LFS objects were present in `.git/lfs/objects`.
+- **Fix:** I closed the editor and ran `git lfs checkout`, which restored 660 of 660 files, then relaunched. No packages were unloadable afterwards.
+- I added the gotcha to CLAUDE.md.
+
+## Stage 2: CC0 audio (2026-09-29)
+- **Downloaded:** only the files listed in the plan, all under 5 MB, into `Saved/AudioSources/` (git-ignored). The sources are listed in `docs/Audio_Credits.md`.
+- **Skipped:** the Gregor Quendel city recordings, because they're CC-BY-SA, not CC0.
+- **Unreal-mcp:** it failed to connect at session start, so I talked to its HTTP endpoint directly with a small JSON-RPC client in my scratchpad.
+- **Analysis:** UE imports OGG directly through its bundled libsndfile. I exported every candidate to WAV with `SoundExporterWAV`, then measured them with `Tools/Audio/analyze_audio.py` (peak, RMS, spectral centroid, energy above 4 kHz, flatness, pitch contour).
+
+**Picks**
+| Role | File | Why |
+|---|---|---|
+| Click | `click2` | centroid 368 Hz |
+| Tile | `drop_003` | soft |
+| Pass | `confirmation_001` | rising |
+| Fail | `error_008` | low, 0.14 s |
+| Menu select | `maximize_008` | soft, rising |
+| Cover blown | Pizzicato jingle 14 | falling |
+| Mission complete | Pizzicato jingle 02 | rising |
+| Ambience | `highway` loop | broadband noise bed, not a tone |
+| Music (menu and cities) | *Busy but Calm Street* | |
+
+**Rejected**
+- *Ambient Relaxing Loop*: it sustains a single 787 Hz tone (flatness 0.00), which is the same "ringing" problem as the old MetaSounds.
+- `ambient_03`: a drone.
+- Anything with a centroid above about 3 kHz (`close_*`, `open_*`, `scratch_*`, `glass_004`).
+
+**Mix levels (project settings)**
+- UI 0.5, Ambience 1.0, Music 0.6.
+- The player defaults are master 0.8, music 0.5, ambience 0.5 and UI 0.7.
+- The resulting in-game levels are roughly: UI peaks at −12 dBFS, music at −30 dB RMS, street bed at −37 dB RMS.
+
+**Cleanup and open items**
+- The old `MS_*` MetaSounds are removed. `delete_asset` removed them in memory but left the files on disk, so I finished with `git rm`.
+- `audio_setup.py` is marked deprecated.
+- Every city uses the same music and street bed for now. Per-city music is a follow-up, noted in EDITOR_TODO.
+- **Not verified by ear.** I can't listen. The user needs to confirm.
