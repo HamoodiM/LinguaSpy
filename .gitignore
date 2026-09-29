@@ -21,3 +21,4 @@ Plugins/**/Intermediate/
 # OS
 Thumbs.db
 .DS_Store
+*.blend1
