@@ -22,23 +22,35 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   Tokyo/Japanese, Rome/Italian), main menu + city select, minimal save, Slate conversation editor tool.
 - **Phase 3 (done, see `docs/Phase3_Plan.md`)** — merged Phase 2's M7 (Opération Croissant) + M8 (Madrid/Tokyo/Rome) with the art pass:
   cel-shading + outlines, Blender-modeled characters on the mannequin skeleton, env kits, occlusion fade, UI skin, MetaSound audio, NPC life.
-- **Phase 4 (next, see `HANDOFF.md`)** — more cities/languages, spaced-repetition practice, phrasebook, helper-reliance scoring.
+- **Phase 4 (done, see `docs/Phase4_Plan.md` / `docs/Phase4_Log.md`)** — learning systems (Leitner SRS, Safe house review screen,
+  phrasebook, tap-to-translate + per-mission fluency grade S/A/B/C, settings screen) and CC0 audio replacing the MetaSounds.
+- **Phase 5 (ideas)** — more cities/languages (German, Portuguese, Korean, Mandarin w/ pinyin), second missions for Madrid/Tokyo/Rome,
+  per-city CC0 music, template cleanup (`Variant_*`, `/Game/TopDown`).
 
 ## Code layout & conventions
 - New gameplay code lives in `Source/Personal/LinguaSpy/`:
   - `Data/` — content schemas (`UConversationAsset`, `ULanguagePackAsset`, structs in `ConversationTypes.h`).
-  - `Language/` — `USentenceGrader` (pure, testable), `ULanguageProgressSubsystem` (per-skill stats).
-  - `Dialogue/` — `UConversationSubsystem` (world subsystem driving the active conversation + practice drills).
+  - `Language/` — `USentenceGrader` (pure, testable), `ULanguageProgressSubsystem` (per-skill stats), `USrsScheduler` (pure Leitner
+    scheduling, `FSrsItemKey` = `<conversation path>#<NodeId>#<ChoiceIndex>`), `USpacedRepetitionSubsystem` (records every graded
+    answer, review queues, phrasebook items, `SetDebugTimeOffsetHours` for tests), `UFluencyScoring` (pure grade from mistakes/peeks).
+  - `Dialogue/` — `UConversationSubsystem` (world subsystem driving the active conversation, cover-blown practice drills and
+    `Review` sessions via `StartReviewSession`/`StartReviewForCity`; `RevealTranslation` = tap-to-translate peek; tallies feed
+    `UMissionSubsystem::AddFluencyTally` when an NPC conversation ends).
   - `Cover/` — `UCoverComponent` (cover meter on the player).
   - `Interaction/` — `ANpcCharacter` (mannequin-skeleton body, faces the player while talking, `ConversationOptions`
     gated by flags / `RequiredMission` / current target), `APedestrianCharacter` (wandering locals, AIController + navmesh).
   - `Camera/` — `UOcclusionFadeComponent` (fades occluders via Custom Primitive Data[0] → `M_ToonMaster` dither).
-  - `Audio/` — `ULinguaSpyAudioSettings` (Project Settings → Game → LinguaSpy Audio) + `LinguaSpyAudio::PlayUI/PlayLoop`.
+  - `Audio/` — `ULinguaSpyAudioSettings` (Project Settings → Game → LinguaSpy Audio: sounds + base mix levels),
+    `ULinguaSpyAudioSubsystem` (volume = mix level × player slider × master, live slider changes, loop fade-in) behind
+    `LinguaSpyAudio::PlayUI/PlayLoop(…, ESpyAudioChannel)`.
   - `Mission/` — `UMissionAsset` (objective graph, `ResolveTransition`), `UMissionSubsystem` (city/mission/flags),
     `UMissionTargetComponent` (id + beacon), `AMissionMarker` (ReachLocation), `AMissionPickup` (Collect).
-  - `Save/` — `ULinguaSpySaveGame` + `ULinguaSpySaveSubsystem` (single profile: skills per city, mission state, settings).
+  - `Save/` — `ULinguaSpySaveGame` (v2: skills, cities, settings incl. volumes, `SrsItems`, `BestGrades`; `Migrate()` runs after
+    load) + `ULinguaSpySaveSubsystem`. **Bump `CurrentVersion` + add a step in `Migrate` whenever the format changes.**
   - `UI/` — code-built widgets (conversation, tiles, HUD, main menu, city cards, pause); `BindWidgetOptional` lets a WBP restyle later.
-  - `Tests/` — automation tests (`LinguaSpy.*`: Grader, GraderLanguages, MissionTransitions, SaveRoundTrip, NpcConversationResolve).
+    `UOverlayPanelWidget` is the shared frame for `USettingsWidget`, `UPhrasebookWidget`, `UPracticeScreenWidget` (Safe house).
+  - `Tests/` — automation tests (`LinguaSpy.*`: Grader, GraderLanguages, MissionTransitions, SaveRoundTrip, SaveRoundTripSrs,
+    SaveMigration, NpcConversationResolve, Srs.Schedule, Srs.ItemKey, FluencyGrade).
 - `Source/PersonalEditor/` — editor-only module: **Tools → LinguaSpy → Conversation Editor** tab (`SConversationEditor`).
 - `Tools/Content/*.py` — Python content scripts (run in-editor via unreal-mcp): `paris_content.py` (+ `paris_croissant.py`),
   `madrid|tokyo|rome_content.py`, `art_setup.py` (imports + toon materials), `audio_setup.py` (MetaSounds). They overwrite
@@ -54,6 +66,8 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 - Mission flow: conversation `End` nodes report `Outcome` (default `Completed`); `CoverBlownOutcome` lets a mission branch
   after a blown cover. Objectives advance via the first matching transition (outcome + required/blocked flags).
 - Keep logic in C++; Blueprints are thin subclasses for assets/layout.
+- **SRS keys depend on conversation asset paths and `NodeId`s** — don't rename/move nodes or conversations of shipped content
+  (stale keys are skipped, but the player's progress on them is lost).
 - `Source/Personal/Variant_Strategy` and `Variant_TwinStick` are unused template leftovers (kept for now).
 
 ## Human-in-the-loop
@@ -97,6 +111,12 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 - When C++ needs a rebuild: if the editor is closed, build with Build.bat yourself (then launch the editor); if it is open,
   ask the user to recompile/relaunch (Live Coding blocks Build.bat).
 - `EditorAssetLibrary.load_asset` fails during PIE — use `unreal.load_asset("/Game/...Asset.Asset")` instead.
+- Scripted PIE: `Tools/Test/pie_driver.py` (drives conversations/reviews through the subsystem delegates). Python callables bound
+  to dynamic delegates are weakly held — keep them alive (the driver stores them in `builtins`).
+- `shot showui` crashed the editor once in 5.8 (D3D12/Slate RHI, Phase 4). Safer: capture the editor window with Win32
+  `PrintWindow` (PowerShell). SaveGame serialization skips properties equal to the class default (why `Version` defaults to 0).
+- If unreal-mcp failed to connect at session start, it can still be reached over plain HTTP JSON-RPC at `http://127.0.0.1:8000/mcp`.
+- `EditorAssetLibrary.delete_asset` on the MetaSounds removed them in memory but left the files — check disk, `git rm` if needed.
 - The first `shot showui` after starting PIE often captures the editor viewport — take a second shot.
 - Blender MCP: never leave the armature hidden when running `transform_apply` (it silently skips hidden objects).
 - Stacked flat slabs at the same top height z-fight (flicker) — keep water/plazas a few cm above road/sidewalk.
@@ -105,9 +125,11 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 
 ## Known issues / next up
 - Toon post-process thresholds (`PP_Toon` T1/T2/levels) are tuned by eye; revisit per city if lighting changes.
-- Audio is procedural and minimal (MetaSounds); music per city is only the ambience pad for now.
+- Audio: CC0 samples in `/Game/LinguaSpy/Audio/CC0` via `Tools/Content/audio_import_cc0.py` (sources in `Saved/AudioSources`,
+  credits in `docs/Audio_Credits.md`); pick sounds with `Tools/Audio/analyze_audio.py` — avoid sustained single-pitch pads
+  (flatness ≈ 0) and bright clicks (centroid > ~3 kHz). All cities share one music track + street bed for now.
 - Git LFS is enabled for `*.uasset` / `*.umap`.
-- Next phase: see `HANDOFF.md` (Phase 4 planning brief).
+- Next phase: Phase 5 ideas above; `HANDOFF.md` is the Phase 4 brief (historical).
 
 ## Build / test
 - Editor must be closed (or use Live Coding for non-header changes) when adding new UCLASSes:

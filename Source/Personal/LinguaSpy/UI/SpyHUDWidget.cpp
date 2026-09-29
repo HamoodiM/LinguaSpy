@@ -298,7 +298,7 @@ void USpyHUDWidget::HandleMissionCompleted(UMissionAsset* Mission)
 		: Grade.Grade == 2 ? LOCTEXT("VerdictB", "You got through, with your handler's help.")
 		: LOCTEXT("VerdictC", "Mission done - but you leaned on the helper. Drill in the Safe house.");
 	ShowBanner(FText::Format(LOCTEXT("MissionCompleteGrade", "MISSION COMPLETE - GRADE {0}"), UFluencyScoring::GradeLetter(Grade.Grade)),
-		FText::Format(LOCTEXT("Debrief", "{0}\n{1}\n{2} answers, {3} mistakes, {4} translations peeked.  Best: {5}"),
+		FText::Format(LOCTEXT("Debrief", "{0}\n{1}\n{2} {2}|plural(one=answer,other=answers), {3} {3}|plural(one=mistake,other=mistakes), {4} {4}|plural(one=translation,other=translations) peeked.  Best: {5}"),
 			Mission->Title, Verdict, Grade.Challenges, Grade.Mistakes, Grade.Peeks, UFluencyScoring::GradeLetter(Best.Grade)),
 		7.f);
 }

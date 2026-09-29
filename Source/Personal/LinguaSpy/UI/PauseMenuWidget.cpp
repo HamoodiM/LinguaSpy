@@ -132,7 +132,7 @@ void UPauseMenuWidget::RefreshLabels()
 		return;
 	}
 	const FMissionGrade Tally = Missions->GetCurrentMissionTally();
-	TallyText->SetText(FText::Format(LOCTEXT("Tally", "{0}: {1} answers, {2} mistakes, {3} peeks - on track for {4}"),
+	TallyText->SetText(FText::Format(LOCTEXT("Tally", "{0}: {1} {1}|plural(one=answer,other=answers), {2} {2}|plural(one=mistake,other=mistakes), {3} {3}|plural(one=peek,other=peeks) - on track for {4}"),
 		Missions->GetActiveMission()->Title, Tally.Challenges, Tally.Mistakes, Tally.Peeks,
 		UFluencyScoring::GradeLetter(UFluencyScoring::ComputeGrade(Tally.Challenges, Tally.Mistakes, Tally.Peeks))));
 }

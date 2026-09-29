@@ -70,9 +70,12 @@ def bind():
     c = conv()
     if c is None:
         raise RuntimeError("No PIE ConversationSubsystem")
+    # The delegates only hold weak references to Python callables, and every exec of this file redefines the
+    # functions, so keep the bound ones alive in the persistent state (builtins) and never rebind per call.
     if S["bound"] != c.get_path_name():
-        c.on_node_entered.add_callable(_on_node)
-        c.on_challenge_ready.add_callable(_on_challenge)
+        S["cb_node"], S["cb_challenge"] = _on_node, _on_challenge
+        c.on_node_entered.add_callable(S["cb_node"])
+        c.on_challenge_ready.add_callable(S["cb_challenge"])
         S["bound"] = c.get_path_name()
     return c
 
@@ -136,7 +139,7 @@ def talk_to(target, peek_nodes=0, wrong_answers=0):
     if not npc:
         return f"no NPC {target}"
     c = bind()
-    ok = c.start_conversation(npc, player().get_cover())
+    ok = c.start_conversation(npc, player().get_component_by_class(unreal.CoverComponent))
     if not ok:
         return f"could not start conversation with {target}"
     return drive(peek_nodes, wrong_answers)
