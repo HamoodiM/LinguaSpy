@@ -196,8 +196,26 @@ void APersonalPlayerController::HandleBriefingClosed()
 
 void APersonalPlayerController::HandleFieldNote(const FGrammarNote& Note)
 {
+	PendingFieldNotes.Add(Note);
+	if (!bFieldNoteOpen)
+	{
+		ShowNextFieldNote();
+	}
+}
+
+void APersonalPlayerController::ShowNextFieldNote()
+{
+	bFieldNoteOpen = false;
+	if (PendingFieldNotes.IsEmpty())
+	{
+		return;
+	}
+	const FGrammarNote Note = PendingFieldNotes[0];
+	PendingFieldNotes.RemoveAt(0);
 	if (UFieldNoteWidget* Card = CreateWidget<UFieldNoteWidget>(this, UFieldNoteWidget::StaticClass()))
 	{
+		bFieldNoteOpen = true;
+		Card->OnClosed.AddDynamic(this, &APersonalPlayerController::ShowNextFieldNote);
 		Card->Open();
 		Card->SetNote(Note);
 	}

@@ -4,7 +4,7 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
 
 ## Open
 - [ ] **Compile the plural fix.** It's in `SpyHUDWidget.cpp` and `PauseMenuWidget.cpp`, so it reads "1 mistake", not "1 mistakes". It's .cpp only: press Ctrl+Alt+F11 (Live Coding) or rebuild.
-- [ ] **Listen to the new audio.** The procedural MetaSounds are gone, replaced with CC0 samples (see `docs/Audio_Credits.md`). Claude checked loudness and brightness numerically but can't hear them. Say if anything still sounds harsh, too loud or too quiet.
+- [ ] **Listen to the new audio.** The procedural MetaSounds are gone, replaced with CC0 samples (see `docs/Credits.md`). Claude checked loudness and brightness numerically but can't hear them. Say if anything still sounds harsh, too loud or too quiet.
   - You can adjust volumes in-game: Settings, from the menu or the P pause menu.
   - The base mix levels are in Project Settings → Game → LinguaSpy Audio.
   - To swap a sound, edit `SOUNDS` in `Tools/Content/audio_import_cc0.py` and re-run it.

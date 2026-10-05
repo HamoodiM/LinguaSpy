@@ -1,7 +1,7 @@
-"""Imports the chosen CC0 audio (see docs/Audio_Credits.md) and wires it into LinguaSpy.
+"""Imports the chosen CC0 audio (see docs/Credits.md) and wires it into LinguaSpy.
 Replaces the Phase 3 procedural MetaSounds (audio_setup.py), which were sustained pure tones ("ringing").
 
-Sources are downloaded into Saved/AudioSources (git-ignored); see docs/Audio_Credits.md for the URLs.
+Sources are downloaded into Saved/AudioSources (git-ignored); see docs/Credits.md for the URLs.
 Run in the editor (unreal-mcp / Python), in steps to stay under the 30 s call limit:
     exec(open(r"C:/UnrealEngineProjects/Personal/Tools/Content/audio_import_cc0.py", encoding="utf-8").read())
     import_all()          # SoundWaves -> /Game/LinguaSpy/Audio/CC0
@@ -59,7 +59,7 @@ def import_all():
     for name, (rel, loops) in SOUNDS.items():
         path = os.path.join(SRC, rel)
         if not os.path.exists(path):
-            unreal.log_warning(f"Missing source {path} (see docs/Audio_Credits.md)")
+            unreal.log_warning(f"Missing source {path} (see docs/Credits.md)")
             continue
         task = unreal.AssetImportTask()
         task.filename = path

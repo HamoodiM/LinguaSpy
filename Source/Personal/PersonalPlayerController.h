@@ -130,6 +130,13 @@ protected:
 	UFUNCTION()
 	void HandleFieldNote(const FGrammarNote& Note);
 
+	/** Shows the next queued field note (one card at a time). */
+	UFUNCTION()
+	void ShowNextFieldNote();
+
+	TArray<FGrammarNote> PendingFieldNotes;
+	bool bFieldNoteOpen = false;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UBriefingWidget> BriefingWidget;
 

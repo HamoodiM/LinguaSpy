@@ -81,3 +81,44 @@ Built with the editor closed. It compiled first try, and all **19** `LinguaSpy.*
 - Mission replay: after the pilot build, per the user's scope cut.
 - `LinguaSpy.OpenConversationEditor` console command and the hand-edit guard: with the content stage.
 - Test name gotcha: a test named `X.Y.Z` hides an existing test `X.Y`. The new tests are named `GraderTolerant` and `SaveMigrationV3` because of this.
+
+## 2026-10-05: Stage 3 + Paris retrofit + scripted PIE
+**Voices (Stage 3)**
+- Piper 2023.11.14-2 (MIT, Windows build) plus fr_FR-siwis-medium and fr_FR-mls-medium, both CC-BY 4.0. They live in `Saved/VoiceGen/tools`, which is not in git.
+  - Rejected: fr_FR-tom (AGPL) and fr_FR-upmc (CC-BY-SA).
+  - Credits: `docs/Credits.md`, renamed from `Audio_Credits.md`.
+- NPC voices are MLS speakers picked by median pitch: Camille 3, Marcel 27, Luc 36, Sophie 48, Hugo 63, Élise 75.
+- siwis is the handler: it voices the briefing phrases, model answers and listening test items.
+- `Tools/Content/voice_build.py` runs in three steps: synth → import → assign. It hashes each line, so unchanged lines are skipped.
+  - Paris: 139 clips (40 lines × normal/slow, 33 model answers, 16 briefing phrases, 10 test items).
+  - The first synth took 72 s inside the editor, over the 30 s MCP limit, but it completed. Each Piper call reloads the model. Next time, run the synth step outside the editor, or batch the lines per voice.
+- **Not verified:** how the voices sound. Claude can't listen. This is in EDITOR_TODO.
+
+**Paris retrofit** (`paris_content.py`, `paris_croissant.py`; all NodeIds unchanged)
+- Every challenge got hints, some with authored gaps.
+- Cover penalties: tutorial 12, codes 20; Croissant 18, codes 25. They were 34–50.
+- 8 briefing phrases plus 3 can-dos per mission.
+- 3 NPC lines became intel checks: the café price, the kiosk directions, the painter's time.
+- 6 French field notes on the pack.
+- `paris_assessment.py`: FR_A / FR_B, 15 items each (5 listen, 4 read, 3 gap, 3 assemble). Every French asset passes `Validate()`.
+- `lingua_content.get_or_create` skips assets tagged `LinguaSpy.HandEdited`. The Conversation Editor now stamps that tag on every edit, and the `LinguaSpy.OpenConversationEditor` console command opens it.
+
+**Scripted PIE** (fresh profile in pilot mode; the user's save was backed up and restored)
+- Briefing: opens on mission start and pauses the game. Study cards, then a 16-item quiz.
+- First Contact:
+  - new items come as Assemble;
+  - a wrong answer gets a prompt, and the second try counts as assisted;
+  - a full miss leads to a recast, and the retry drops to Recognize;
+  - intel checks pass;
+  - grade A, then the handler went Shadowing → OnCall;
+  - the debrief (4 items) ran;
+  - the "Où est" field note appeared;
+  - the Croissant briefing opened only after the debrief.
+- Croissant: full run, intel check, grade S, 5-item debrief, city complete.
+- Telemetry: 70 events in one JSONL session. The sample is in `Saved/Telemetry/test_runs/`.
+
+**Fixes from the run** (second build; 19/19 tests pass)
+- Recycled phrases now take the strongest SRS state of any item with the same phrase (`FindStrongestForPhrase`). Before this fix, Croissant's coffee order restarted at Assemble.
+- Debrief passes don't promote SRS boxes. A debrief is minutes after the mission, so it's consolidation, not spaced retrieval.
+- Field notes queue one card at a time (four had stacked at once).
+- Review/debrief helper text no longer threatens the grade.

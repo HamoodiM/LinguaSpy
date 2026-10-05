@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "SrsScheduler.h"
+#include "ConversationTypes.h"
 #include "SpacedRepetitionSubsystem.generated.h"
 
 class ULinguaSpySaveSubsystem;
@@ -58,6 +59,12 @@ public:
 
 	/** Schedule of one item, or nullptr if never answered. */
 	const FSrsItemState* FindState(const FSrsItemKey& Key) const;
+
+	/**
+	 *  Strongest schedule for this phrase: the item itself, or another item in the same city whose model answer is the
+	 *  same phrase (missions recycle phrases in new conversations; the learner shouldn't start over at full support).
+	 */
+	const FSrsItemState* FindStrongestForPhrase(const FSrsItemKey& Key, const FWordTileChallenge& Challenge, FName CityId) const;
 
 	/** Number of items the player has passed at least once in a city. */
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|SRS")

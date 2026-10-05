@@ -875,6 +875,8 @@ void UConversationWidget::RefreshHelperAndReadings()
 			? FText::Format(LOCTEXT("HelperFormat", "Handler: \"{0}\""), CurrentHelperLine)
 			: PeeksLeft == 0 ? LOCTEXT("HelperSilent", "(Radio silence - you're on your own here.)")
 			: PeeksLeft > 0 ? FText::Format(LOCTEXT("HelperLimited", "(Radio silence: {0} {0}|plural(one=translation,other=translations) left in this conversation.)"), PeeksLeft)
+			: Conversations && Conversations->GetMode() != EConversationMode::Conversation
+			? LOCTEXT("HelperHiddenPractice", "(Tap Translate if you need the line in English.)")
 			: LOCTEXT("HelperHidden", "(Stuck? Tap Translate and your handler will whisper it - it lowers your fluency grade.)"));
 		HelperText->SetColorAndOpacity(FSlateColor(bRevealed ? LinguaSpyStyle::TextHelper : LinguaSpyStyle::TextMuted));
 	}

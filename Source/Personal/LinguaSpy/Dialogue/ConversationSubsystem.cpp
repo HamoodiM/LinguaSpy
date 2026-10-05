@@ -362,7 +362,7 @@ void UConversationSubsystem::PresentChallenge(const FWordTileChallenge& Challeng
 	Presentation = FChallengePresentation();
 	Presentation.Challenge = Challenge;
 	Presentation.Attempt = 1;
-	Presentation.Level = UScaffoldPolicy::ChooseLevel(Srs ? Srs->FindState(Key) : nullptr,
+	Presentation.Level = UScaffoldPolicy::ChooseLevel(Srs ? Srs->FindStrongestForPhrase(Key, Challenge, GetCityId()) : nullptr,
 		SessionErrors.FindRef(Key.ToString()), Language && Language->CanType());
 	Presentation.Tiles = UScaffoldPolicy::BuildTiles(Challenge, Presentation.Level);
 	if (Presentation.Level == EScaffoldLevel::Recognize)
@@ -547,7 +547,9 @@ void UConversationSubsystem::RecordFinal(const FWordTileChallenge& Challenge, bo
 		{
 			if (ActiveConversation)
 			{
-				Srs->RecordResult(Key, GetCityId(), Challenge.SkillTag, bPassed, bAssisted);
+				// A debrief comes minutes after the mission: it consolidates, but a pass there isn't spaced retrieval,
+				// so it doesn't move the item up a box
+				Srs->RecordResult(Key, GetCityId(), Challenge.SkillTag, bPassed, bAssisted || bDebrief);
 			}
 		}
 	}

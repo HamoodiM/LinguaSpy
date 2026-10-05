@@ -38,6 +38,20 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Views/STableRow.h"
 #include "Misc/PackageName.h"
+#include "UObject/MetaData.h"
+#include "UObject/Package.h"
+
+namespace
+{
+	/** Tags the asset so the content scripts (Tools/Content/lingua_content.py) stop regenerating it. */
+	void StampHandEdited(UObject* Asset)
+	{
+		if (UPackage* Package = Asset ? Asset->GetPackage() : nullptr)
+		{
+			Package->GetMetaData().SetValue(Asset, TEXT("LinguaSpy.HandEdited"), TEXT("1"));
+		}
+	}
+}
 
 #define LOCTEXT_NAMESPACE "LinguaSpyConversationEditor"
 
@@ -638,6 +652,7 @@ FReply SConversationEditor::OnAddNode(int32 TypeIndex)
 
 	const FScopedTransaction Transaction(LOCTEXT("AddNode", "Add Conversation Node"));
 	Current->Modify();
+	StampHandEdited(Current);
 
 	FConversationNode Node;
 	Node.Type = static_cast<EConversationNodeType>(TypeIndex);
@@ -682,6 +697,7 @@ FReply SConversationEditor::OnDeleteNode()
 	}
 	const FScopedTransaction Transaction(LOCTEXT("DeleteNode", "Delete Conversation Node"));
 	Current->Modify();
+	StampHandEdited(Current);
 	Current->Nodes.RemoveAt(SelectedNode);
 	SelectedNode = FMath::Min(SelectedNode, Current->Nodes.Num() - 1);
 	MarkEdited();
@@ -699,6 +715,7 @@ FReply SConversationEditor::OnMoveNode(int32 Direction)
 	}
 	const FScopedTransaction Transaction(LOCTEXT("MoveNode", "Move Conversation Node"));
 	Current->Modify();
+	StampHandEdited(Current);
 	Current->Nodes.Swap(SelectedNode, Target);
 	SelectedNode = Target;
 	MarkEdited();
@@ -715,6 +732,7 @@ FReply SConversationEditor::OnSetStartNode()
 	}
 	const FScopedTransaction Transaction(LOCTEXT("SetStart", "Set Start Node"));
 	Current->Modify();
+	StampHandEdited(Current);
 	Current->StartNode = Current->Nodes[SelectedNode].NodeId;
 	MarkEdited();
 	RefreshAll();
@@ -897,6 +915,7 @@ FReply SConversationEditor::OnApplyQuickTiles()
 
 	const FScopedTransaction Transaction(LOCTEXT("ApplyQuickTiles", "Apply Quick Tiles"));
 	Current->Modify();
+	StampHandEdited(Current);
 	FWordTileChallenge* Challenge = GetQuickTargetChallenge();
 
 	// Readings map
@@ -983,6 +1002,7 @@ void SConversationEditor::NotifyPreChange(FProperty* PropertyAboutToChange)
 	{
 		GEditor->BeginTransaction(LOCTEXT("EditNode", "Edit Conversation Node"));
 		Current->Modify();
+		StampHandEdited(Current);
 		bInTransaction = true;
 	}
 }
@@ -1019,6 +1039,7 @@ void SConversationEditor::MarkEdited()
 {
 	if (UConversationAsset* Current = GetConversation())
 	{
+		StampHandEdited(Current);
 		Current->MarkPackageDirty();
 	}
 }

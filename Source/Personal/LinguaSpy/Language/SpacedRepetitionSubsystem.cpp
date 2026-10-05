@@ -85,6 +85,49 @@ const FSrsItemState* USpacedRepetitionSubsystem::FindState(const FSrsItemKey& Ke
 	return Items && Key.IsValid() ? Items->Find(Key.ToString()) : nullptr;
 }
 
+const FSrsItemState* USpacedRepetitionSubsystem::FindStrongestForPhrase(const FSrsItemKey& Key, const FWordTileChallenge& Challenge, FName CityId) const
+{
+	const FSrsItemState* Best = FindState(Key);
+	const TMap<FString, FSrsItemState>* Items = GetItems();
+	if (!Items || Challenge.AcceptedAnswers.IsEmpty())
+	{
+		return Best;
+	}
+	auto Phrase = [](const FWordTileChallenge& C)
+	{
+		TArray<FString> Norm;
+		for (const FString& Token : C.AcceptedAnswers[0].Tokens)
+		{
+			Norm.Add(USentenceGrader::NormalizeToken(Token));
+		}
+		return FString::Join(Norm, TEXT(" "));
+	};
+	const FString Wanted = Phrase(Challenge);
+	for (const TPair<FString, FSrsItemState>& Pair : *Items)
+	{
+		if (Pair.Value.CityId != CityId || (Best && Pair.Value.Box <= Best->Box))
+		{
+			continue;
+		}
+		FSrsItemKey Other;
+		if (!FSrsItemKey::Parse(Pair.Key, Other) || Other == Key)
+		{
+			continue;
+		}
+		const UConversationAsset* Conversation = Cast<UConversationAsset>(Other.Conversation.ResolveObject());
+		if (!Conversation)
+		{
+			Conversation = Cast<UConversationAsset>(Other.Conversation.TryLoad());
+		}
+		const FWordTileChallenge* OtherChallenge = Conversation ? Conversation->FindChallenge(Other.NodeId, Other.ChoiceIndex) : nullptr;
+		if (OtherChallenge && !OtherChallenge->AcceptedAnswers.IsEmpty() && Phrase(*OtherChallenge) == Wanted)
+		{
+			Best = &Pair.Value;
+		}
+	}
+	return Best;
+}
+
 TArray<FSrsItemView> USpacedRepetitionSubsystem::GetLearnedItems(FName CityId) const
 {
 	TArray<FSrsItemView> Out;

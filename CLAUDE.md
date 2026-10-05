@@ -130,7 +130,7 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 ## Known issues / next up
 - Toon post-process thresholds (`PP_Toon` T1/T2/levels) are tuned by eye; revisit per city if lighting changes.
 - Audio: CC0 samples in `/Game/LinguaSpy/Audio/CC0` via `Tools/Content/audio_import_cc0.py` (sources in `Saved/AudioSources`,
-  credits in `docs/Audio_Credits.md`); pick sounds with `Tools/Audio/analyze_audio.py` — avoid sustained single-pitch pads
+  credits in `docs/Credits.md`); pick sounds with `Tools/Audio/analyze_audio.py` — avoid sustained single-pitch pads
   (flatness ≈ 0) and bright clicks (centroid > ~3 kHz). All cities share one music track + street bed for now.
 - Git LFS is enabled for `*.uasset` / `*.umap`.
 - Next phase: Phase 5 ideas above; `HANDOFF.md` is the Phase 4 brief (historical).

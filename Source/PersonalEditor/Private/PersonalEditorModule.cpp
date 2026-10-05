@@ -1,5 +1,6 @@
 // LinguaSpy editor module: registers the Conversation Editor tab
 
+#include "HAL/IConsoleManager.h"
 #include "Modules/ModuleManager.h"
 #include "Framework/Docking/TabManager.h"
 #include "Widgets/Docking/SDockTab.h"
@@ -28,10 +29,23 @@ public:
 			.SetGroup(WorkspaceMenu::GetMenuStructure().GetToolsCategory());
 
 		UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FPersonalEditorModule::RegisterMenus));
+
+		// For automation / screenshots: "LinguaSpy.OpenConversationEditor" in the console
+		OpenCommand = IConsoleManager::Get().RegisterConsoleCommand(TEXT("LinguaSpy.OpenConversationEditor"),
+			TEXT("Opens the LinguaSpy Conversation Editor tab"),
+			FConsoleCommandDelegate::CreateLambda([]()
+			{
+				FGlobalTabmanager::Get()->TryInvokeTab(LinguaSpyEditor::ConversationEditorTabId);
+			}));
 	}
 
 	virtual void ShutdownModule() override
 	{
+		if (OpenCommand)
+		{
+			IConsoleManager::Get().UnregisterConsoleObject(OpenCommand);
+			OpenCommand = nullptr;
+		}
 		UToolMenus::UnRegisterStartupCallback(this);
 		UToolMenus::UnregisterOwner(this);
 		if (FSlateApplication::IsInitialized())
@@ -41,6 +55,8 @@ public:
 	}
 
 private:
+
+	IConsoleObject* OpenCommand = nullptr;
 
 	TSharedRef<SDockTab> SpawnConversationEditor(const FSpawnTabArgs& Args)
 	{

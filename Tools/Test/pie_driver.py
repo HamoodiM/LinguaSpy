@@ -10,7 +10,9 @@
 
 Conversations are driven through UConversationSubsystem directly (delegates fire synchronously), so one call can
 play a whole conversation: choices pick the first available option, challenges are answered with the first
-accepted answer (or a deliberately wrong order for the first `wrong_answers` challenges).
+accepted answer at whatever scaffold level they are presented (pick / tiles / gap words / typed), intel checks with
+the right option. The first `wrong_answers` challenges get a wrong answer on both attempts (prompt, then recast);
+`prompt_then_right` challenges get one wrong attempt and then the right one (feedback ladder).
 """
 import builtins
 import unreal
@@ -62,8 +64,8 @@ def _on_node(node, mode):
     S["challenge"] = None
 
 
-def _on_challenge(challenge):
-    S["challenge"] = challenge
+def _on_challenge(presentation):
+    S["challenge"] = presentation
 
 
 def bind():
@@ -99,16 +101,45 @@ def _answer(challenge, correct):
     return tokens
 
 
-def drive(peek_nodes=0, wrong_answers=0, max_steps=80):
+def _submit(c, pres, correct):
+    """Answers a presented challenge at its scaffold level. Returns the FAnswerFeedback."""
+    ch = pres.challenge
+    level = pres.level
+    model = list(ch.accepted_answers[0].tokens)
+    if level == unreal.ScaffoldLevel.RECOGNIZE:
+        sep = " "
+        joined = sep.join(model)
+        opts = list(pres.recognition_options)
+        right = opts.index(joined) if joined in opts else 0
+        return c.submit_recognition(right if correct else (right + 1) % len(opts))
+    if level == unreal.ScaffoldLevel.GAP_FILL:
+        gaps = list(ch.gap_token_indices) or None
+        if not gaps:
+            # mirror UScaffoldPolicy::GetGapIndices (longest word; two for 6+ tokens)
+            order = sorted(range(len(model)), key=lambda i: (-len(model[i]), -i))
+            gaps = sorted(order[:2 if len(model) >= 6 else 1])
+        words = [model[i] for i in gaps] if correct else ["zzz"] * len(gaps)
+        return c.submit_gap_words(words)
+    return c.submit_answer(_answer(ch, correct))
+
+
+def drive(peek_nodes=0, wrong_answers=0, max_steps=120, prompt_then_right=0):
     """Plays the running conversation/review to the end. Peeks at the first `peek_nodes` challenge nodes."""
     c = bind()
-    peeks = wrongs = graded = 0
+    peeks = wrongs = graded = prompted = intel = 0
+    levels = []
     for _ in range(max_steps):
         if not c.is_active():
             break
         mode = c.get_mode()
         node = S["node"]
         if mode == unreal.ConversationMode.COVER_BLOWN:
+            c.continue_()
+            continue
+        if S["challenge"] is None and node is not None and node.type == unreal.ConversationNodeType.INTEL_CHECK \
+                and mode == unreal.ConversationMode.CONVERSATION:
+            c.submit_intel(node.intel.correct_index)
+            intel += 1
             c.continue_()
             continue
         if S["challenge"] is None and node is not None and node.type == unreal.ConversationNodeType.PLAYER_CHOICE:
@@ -124,17 +155,24 @@ def drive(peek_nodes=0, wrong_answers=0, max_steps=80):
             correct = wrongs >= wrong_answers
             if not correct:
                 wrongs += 1
-            ch = S["challenge"]
+            pres = S["challenge"]
             S["challenge"] = None
-            c.submit_answer(_answer(ch, correct))
+            levels.append(str(pres.level).split(".")[-1])
+            first_right = correct and prompted >= prompt_then_right
+            fb = _submit(c, pres, first_right)
+            if not fb.final and c.get_mode() != unreal.ConversationMode.COVER_BLOWN:
+                if not first_right and correct:
+                    prompted += 1
+                fb = _submit(c, pres, correct)
             graded += 1
             c.continue_()
             continue
         c.continue_()
-    return {"graded": graded, "peeks": peeks, "wrong": wrongs, "active": c.is_active()}
+    return {"graded": graded, "peeks": peeks, "wrong": wrongs, "prompted": prompted, "intel": intel,
+            "levels": levels, "active": c.is_active()}
 
 
-def talk_to(target, peek_nodes=0, wrong_answers=0):
+def talk_to(target, peek_nodes=0, wrong_answers=0, prompt_then_right=0):
     npc = find_npc(target)
     if not npc:
         return f"no NPC {target}"
@@ -142,7 +180,7 @@ def talk_to(target, peek_nodes=0, wrong_answers=0):
     ok = c.start_conversation(npc, player().get_component_by_class(unreal.CoverComponent))
     if not ok:
         return f"could not start conversation with {target}"
-    return drive(peek_nodes, wrong_answers)
+    return drive(peek_nodes, wrong_answers, prompt_then_right=prompt_then_right)
 
 
 def _teleport_to_actor_named(fragment):
@@ -199,3 +237,19 @@ def shot(name="LinguaSpy"):
     pc = unreal.GameplayStatics.get_player_controller(w, 0)
     unreal.SystemLibrary.execute_console_command(w, "shot showui", pc)
     return "shot requested"
+
+
+def close_overlays():
+    """Closes briefing / field-note / assessment overlays (they pause the game) the way the Close button does."""
+    closed = []
+    for cls in (unreal.BriefingWidget, unreal.FieldNoteWidget, unreal.AssessmentWidget):
+        for w in unreal.ObjectIterator(cls):
+            if "Default__" not in w.get_path_name() and w.is_in_viewport():
+                w.close()
+                closed.append(cls.__name__)
+    return closed
+
+
+def telemetry_file():
+    t = gi_sub(unreal.LearningTelemetrySubsystem)
+    return t.get_session_file() if t else None
