@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 //#include "Templates/SubclassOf.h"
 #include "GameFramework/PlayerController.h"
+#include "LanguagePackAsset.h"
 #include "PersonalPlayerController.generated.h"
 
 class UNiagaraSystem;
@@ -15,6 +16,8 @@ class ANpcCharacter;
 class UConversationWidget;
 class USpyHUDWidget;
 class UPauseMenuWidget;
+class UMissionAsset;
+class UBriefingWidget;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
 
@@ -114,6 +117,23 @@ protected:
 
 	UFUNCTION()
 	void HandleConversationEnded();
+
+	/** LinguaSpy: shows the mission briefing (phrases first) when a mission needs one, once no conversation is running */
+	UFUNCTION()
+	void HandleMissionStarted(UMissionAsset* Mission);
+
+	void TryOpenBriefing();
+
+	UFUNCTION()
+	void HandleBriefingClosed();
+
+	UFUNCTION()
+	void HandleFieldNote(const FGrammarNote& Note);
+
+	UPROPERTY(Transient)
+	TObjectPtr<UBriefingWidget> BriefingWidget;
+
+	bool bBriefingPending = false;
 
 	/** Opens/closes the pause menu (P or Escape) */
 	UFUNCTION()

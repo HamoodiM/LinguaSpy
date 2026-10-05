@@ -1,4 +1,4 @@
-// LinguaSpy - conversation panel: NPC line, helper translation, choices, word-tile answer builder
+// LinguaSpy - conversation panel: NPC line, helper translation, choices, scaffolded answer input, intel checks
 
 #pragma once
 
@@ -10,8 +10,10 @@
 
 class UBorder;
 class UButton;
+class UEditableTextBox;
 class UTextBlock;
 class UWrapBox;
+class UVerticalBox;
 class UWidget;
 class UWordTileWidget;
 class ANpcCharacter;
@@ -19,8 +21,9 @@ class ULanguagePackAsset;
 class ULinguaSpySaveSubsystem;
 
 /**
- *  Conversation UI. Listens to UConversationSubsystem and lets the player pick choices and build replies from tiles.
- *  Builds a default layout in C++; a WBP subclass may supply its own widgets with the same names.
+ *  Conversation UI. Listens to UConversationSubsystem and lets the player pick choices and answer challenges at their
+ *  scaffold level: pick a sentence (Recognize), build it from tiles (Assemble / AssemblePlus), type the missing words
+ *  (GapFill) or type it all (Produce). Builds a default layout in C++; a WBP subclass may supply widgets with the same names.
  */
 UCLASS()
 class UConversationWidget : public UUserWidget
@@ -49,7 +52,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> HelperText;
 
-	/** Holds one button per option at a PlayerChoice node. */
+	/** Holds one button per option at a PlayerChoice node, or the answers of an intel check. */
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UWrapBox> ChoiceBox;
 
@@ -59,11 +62,30 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> IntentText;
 
+	/** Which support level this challenge has ("Words given", "Type the missing word"...). */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UTextBlock> LevelText;
+
+	/** GapFill: the sentence with blanks. */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UTextBlock> GapText;
+
+	/** Recognize: one button per candidate sentence. */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UVerticalBox> OptionBox;
+
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UWidget> AnswerArea;
+
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UWrapBox> AnswerRow;
 
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UWrapBox> TileBank;
+
+	/** GapFill / Produce: typed answer. */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UEditableTextBox> TypeBox;
 
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> FeedbackText;
@@ -73,6 +95,12 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> ReadingToggleButton;
+
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UButton> RepeatButton;
+
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UButton> SlowButton;
 
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> ClearButton;
@@ -113,10 +141,13 @@ private:
 	void HandleNodeEntered(const FConversationNode& Node, EConversationMode Mode);
 
 	UFUNCTION()
-	void HandleChallengeReady(const FWordTileChallenge& Challenge);
+	void HandleChallengeReady(const FChallengePresentation& Presentation);
 
 	UFUNCTION()
-	void HandleAnswerGraded(const FGradeResult& Result, const FString& ModelAnswer);
+	void HandleAnswerFeedback(const FAnswerFeedback& Feedback);
+
+	UFUNCTION()
+	void HandleIntelAnswered(bool bCorrect, int32 ChoiceIndex);
 
 	UFUNCTION()
 	void HandleCoverBlown();
@@ -128,16 +159,31 @@ private:
 	void HandleChoiceClicked(UWordTileWidget* ChoiceButton);
 
 	UFUNCTION()
+	void HandleOptionClicked(UWordTileWidget* OptionButton);
+
+	UFUNCTION()
+	void HandleIntelClicked(UWordTileWidget* OptionButton);
+
+	UFUNCTION()
 	void HandleHelperToggle();
 
 	UFUNCTION()
 	void HandleReadingToggle();
 
 	UFUNCTION()
+	void HandleRepeat();
+
+	UFUNCTION()
+	void HandleSlow();
+
+	UFUNCTION()
 	void HandleClear();
 
 	UFUNCTION()
 	void HandleSubmit();
+
+	UFUNCTION()
+	void HandleTypeCommitted(const FText& Text, ETextCommit::Type CommitMethod);
 
 	UFUNCTION()
 	void HandleContinue();
@@ -148,10 +194,15 @@ private:
 	void SetButtons(bool bShowSubmit, bool bShowContinue);
 	void ClearTiles();
 	void ClearChoices();
+	void ClearOptions();
 	void RefreshHelperAndReadings();
+	void RefreshAudioButtons();
+	void ShowFeedback(const FText& Text, const FLinearColor& Color);
 	void ApplyNativeFont(UTextBlock* Text, int32 Size) const;
+	UWordTileWidget* MakeOptionButton(const FString& Label, bool bNativeText);
+	bool IsTypingLevel() const;
 
-	/** Whether the helper's translation of the current line is visible (tapped Translate, or "always show"). */
+	/** Whether the helper's translation of the current line is visible (tapped Translate, or Shadowing mode). */
 	bool IsHelperEnabled() const;
 	void SetButtonLabel(UButton* Button, const FText& Label) const;
 	bool ShouldShowReadings() const;
@@ -166,12 +217,17 @@ private:
 	UPROPERTY()
 	TMap<TObjectPtr<UWordTileWidget>, int32> ChoiceButtons;
 
+	/** Recognition / intel option button -> option index. */
+	UPROPERTY()
+	TMap<TObjectPtr<UWordTileWidget>, int32> OptionButtons;
+
 	UPROPERTY()
 	TObjectPtr<ULanguagePackAsset> ActiveLanguage;
 
 	FText CurrentHelperLine;
 	FText CurrentReadingLine;
-	FWordTileChallenge CurrentChallenge;
+	FChallengePresentation CurrentPresentation;
 	bool bTilesLocked = false;
+	bool bIntelNode = false;
 	float SlideTime = -1.f;
 };

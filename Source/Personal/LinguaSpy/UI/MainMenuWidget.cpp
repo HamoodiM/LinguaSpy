@@ -10,6 +10,8 @@
 #include "PhrasebookWidget.h"
 #include "PracticeScreenWidget.h"
 #include "SettingsWidget.h"
+#include "AssessmentWidget.h"
+#include "LearningTelemetrySubsystem.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -38,6 +40,7 @@ void UMainMenuWidget::NativeOnInitialized()
 		BuildDefaultLayout();
 	}
 	if (SettingsButton) { SettingsButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleSettings); }
+	if (AssessmentButton) { AssessmentButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleAssessment); }
 	if (ResetButton) { ResetButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleReset); }
 	if (QuitButton) { QuitButton->OnClicked.AddDynamic(this, &UMainMenuWidget::HandleQuit); }
 }
@@ -46,6 +49,20 @@ void UMainMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 	RefreshCards();
+
+	// Pilot sessions start with the participant code + pre-test
+	const ULinguaSpySaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<ULinguaSpySaveSubsystem>() : nullptr;
+	if (IsPilot() && !bPilotPromptShown && Save && Save->GetParticipantCode().IsEmpty())
+	{
+		bPilotPromptShown = true;
+		HandleAssessment();
+	}
+}
+
+bool UMainMenuWidget::IsPilot() const
+{
+	const ULearningTelemetrySubsystem* Telemetry = GetGameInstance() ? GetGameInstance()->GetSubsystem<ULearningTelemetrySubsystem>() : nullptr;
+	return Telemetry && Telemetry->IsPilotMode();
 }
 
 void UMainMenuWidget::BuildDefaultLayout()
@@ -111,6 +128,7 @@ void UMainMenuWidget::BuildDefaultLayout()
 		}
 		return Button;
 	};
+	AssessmentButton = MakeButton(IsPilot() ? LOCTEXT("StudyTests", "Field tests (study)") : LOCTEXT("CheckLevel", "Check my level"), TEXT("AssessmentButton"));
 	SettingsButton = MakeButton(LOCTEXT("Settings", "Settings"), TEXT("SettingsButton"));
 	ResetButton = MakeButton(LOCTEXT("Reset", "Reset progress"), TEXT("ResetButton"));
 	QuitButton = MakeButton(LOCTEXT("Quit", "Quit"), TEXT("QuitButton"));
@@ -193,6 +211,16 @@ void UMainMenuWidget::HandleSettings()
 	{
 		Settings->OnClosed.AddDynamic(this, &UMainMenuWidget::HandleOverlayClosed);
 		Settings->Open();
+	}
+}
+
+void UMainMenuWidget::HandleAssessment()
+{
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+	if (UAssessmentWidget* Assessment = CreateWidget<UAssessmentWidget>(GetOwningPlayer(), UAssessmentWidget::StaticClass()))
+	{
+		Assessment->OnClosed.AddDynamic(this, &UMainMenuWidget::HandleOverlayClosed);
+		Assessment->Open();
 	}
 }
 

@@ -6,6 +6,63 @@
 #include "GameFramework/SaveGame.h"
 #include "LinguaSpySaveGame.generated.h"
 
+/**
+ *  How much the handler helps with translations (docs/Learning_Design.md section 9). Support fades as the player improves.
+ *  Stored per city.
+ */
+UENUM(BlueprintType)
+enum class EHandlerMode : uint8
+{
+	/** Translations shown automatically (free: no peek, not assisted). For first contact with a language. */
+	Shadowing,
+	/** Tap Translate on a line when needed (counts as a peek). */
+	OnCall,
+	/** Like OnCall, but only a few peeks per conversation. */
+	RadioSilence
+};
+
+/** One answered assessment item (no feedback is shown during assessments). */
+USTRUCT(BlueprintType)
+struct FAssessmentItemResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	FName ItemId;
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	bool bCorrect = false;
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	int32 Milliseconds = 0;
+};
+
+/** One completed assessment form (pre-test, post-test, delayed test or placement). */
+USTRUCT(BlueprintType)
+struct FAssessmentResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	FName FormId;
+
+	/** "Pre", "Post", "Delayed" or "Placement". */
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	FName Phase;
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	int32 Score = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	int32 MaxScore = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	int64 UtcTicks = 0;
+
+	UPROPERTY(BlueprintReadOnly, Category="Assessment")
+	TArray<FAssessmentItemResult> Items;
+};
+
 /** Per-skill practice statistics. Keyed "<CityId>.<SkillTag>". */
 USTRUCT(BlueprintType)
 struct FSkillStats
@@ -119,6 +176,14 @@ struct FLinguaSpySettings
 
 	UPROPERTY(BlueprintReadOnly, Category="Settings")
 	float UIVolume = 0.7f;
+
+	/** Spoken lines (NPC voices, model answers). */
+	UPROPERTY(BlueprintReadOnly, Category="Settings")
+	float VoiceVolume = 0.9f;
+
+	/** Write the local learning log (Saved/Telemetry). Off by default; Pilot mode turns it on. Never sent anywhere. */
+	UPROPERTY(BlueprintReadOnly, Category="Settings")
+	bool bTelemetryEnabled = false;
 };
 
 UCLASS()
@@ -128,8 +193,11 @@ class PERSONAL_API ULinguaSpySaveGame : public USaveGame
 
 public:
 
-	/** v1: skills, cities, settings. v2: SRS items, best mission grades, volume + translation settings. */
-	static constexpr int32 CurrentVersion = 2;
+	/**
+	 *  v1: skills, cities, settings. v2: SRS items, best mission grades, volume + translation settings.
+	 *  v3: handler modes, field notes, briefings, assessment results, participant code, voice volume, telemetry toggle.
+	 */
+	static constexpr int32 CurrentVersion = 3;
 
 	/** Upgrades an older profile in place, one version at a time. Returns true if anything changed. */
 	static bool Migrate(ULinguaSpySaveGame* Save);
@@ -158,4 +226,33 @@ public:
 	/** Best fluency grade per MissionId. */
 	UPROPERTY()
 	TMap<FName, FMissionGrade> BestGrades;
+
+	/** Handler mode per CityId (missing = Shadowing). */
+	UPROPERTY()
+	TMap<FName, EHandlerMode> HandlerModes;
+
+	/** Encounters per field note (FGrammarNote::NoteId). */
+	UPROPERTY()
+	TMap<FName, int32> FieldNoteCounts;
+
+	/** Field notes already shown (listed in the phrasebook). */
+	UPROPERTY()
+	TArray<FName> SeenFieldNotes;
+
+	/** Missions whose briefing the player has finished (briefings are offered again on replay / from the pause menu). */
+	UPROPERTY()
+	TArray<FName> BriefingsCompleted;
+
+	/** Pilot study participant code (e.g. "MT-07"). Never a name. Empty outside pilot mode. */
+	UPROPERTY()
+	FString ParticipantCode;
+
+	UPROPERTY()
+	TArray<FAssessmentResult> AssessmentResults;
+
+	EHandlerMode GetHandlerMode(FName CityId) const
+	{
+		const EHandlerMode* Mode = HandlerModes.Find(CityId);
+		return Mode ? *Mode : EHandlerMode::Shadowing;
+	}
 };

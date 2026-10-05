@@ -79,6 +79,12 @@ TArray<FSrsItemKey> USpacedRepetitionSubsystem::BuildReviewQueue(FName CityId, i
 	return Out;
 }
 
+const FSrsItemState* USpacedRepetitionSubsystem::FindState(const FSrsItemKey& Key) const
+{
+	const TMap<FString, FSrsItemState>* Items = GetItems();
+	return Items && Key.IsValid() ? Items->Find(Key.ToString()) : nullptr;
+}
+
 TArray<FSrsItemView> USpacedRepetitionSubsystem::GetLearnedItems(FName CityId) const
 {
 	TArray<FSrsItemView> Out;

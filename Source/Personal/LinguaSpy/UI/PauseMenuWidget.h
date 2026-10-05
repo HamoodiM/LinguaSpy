@@ -38,6 +38,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> PhrasebookButton;
 
+	/** Re-reads the active mission's briefing (no quiz score is recorded). */
+	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
+	TObjectPtr<UButton> BriefingButton;
+
 	UPROPERTY(BlueprintReadOnly, Category="Pause", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> SettingsButton;
 
@@ -63,6 +67,9 @@ private:
 
 	UFUNCTION()
 	void HandlePhrasebook();
+
+	UFUNCTION()
+	void HandleBriefing();
 
 	UFUNCTION()
 	void HandleSettings();

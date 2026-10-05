@@ -17,6 +17,23 @@ bool ULinguaSpySaveGame::Migrate(ULinguaSpySaveGame* Save)
 		Save->Version = 2;
 	}
 
+	// v2 -> v3: players who already played a city keep tap-to-translate (OnCall), or Shadowing if they had
+	// "always show translations" on; finished missions count as briefed (no surprise briefing for old content).
+	if (Save->Version < 3)
+	{
+		const EHandlerMode Mode = Save->Settings.bAlwaysShowTranslation ? EHandlerMode::Shadowing : EHandlerMode::OnCall;
+		for (const TPair<FName, FCityProgress>& City : Save->Cities)
+		{
+			Save->HandlerModes.Add(City.Key, Mode);
+			for (const FName Mission : City.Value.CompletedMissions)
+			{
+				Save->BriefingsCompleted.AddUnique(Mission);
+			}
+		}
+		Save->Settings.bAlwaysShowTranslation = false;
+		Save->Version = 3;
+	}
+
 	Save->Version = CurrentVersion;
 	return true;
 }

@@ -26,6 +26,14 @@ public:
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Grading")
 	static FString NormalizeToken(const FString& Token);
 
+	/** Removes diacritics from Latin letters ("café" -> "cafe"), for the accent-only hint. Non-Latin text is unchanged. */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Grading")
+	static FString FoldAccents(const FString& Text);
+
+	/** Splits typed input into tokens on whitespace (keeps elisions like "s'il" whole; punctuation is ignored by grading). */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Grading")
+	static TArray<FString> TokenizeTyped(const FString& Text);
+
 	/** Joins tokens into a display sentence (e.g. for showing the model answer). */
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Grading")
 	static FString JoinTokens(const TArray<FString>& Tokens, bool bUseSpaces = true);

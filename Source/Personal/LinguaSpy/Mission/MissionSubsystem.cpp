@@ -4,6 +4,10 @@
 #include "LanguagePackAsset.h"
 #include "LinguaSpySaveSubsystem.h"
 #include "FluencyScoring.h"
+#include "ConversationSubsystem.h"
+#include "LearningTelemetrySubsystem.h"
+#include "SrsScheduler.h"
+#include "Engine/World.h"
 #include "Engine/AssetManager.h"
 #include "AssetRegistry/IAssetRegistry.h"
 #include "Kismet/GameplayStatics.h"
@@ -78,6 +82,7 @@ void UMissionSubsystem::EnterCityForWorld(UWorld* World)
 	CurrentPack = Pack;
 	ActiveMission = nullptr;
 	MissionTally = FMissionGrade();
+	MissionItems.Reset();
 	if (!CurrentPack)
 	{
 		UE_LOG(LogPersonal, Warning, TEXT("No language pack uses map '%s'"), *MapName);
@@ -241,10 +246,13 @@ void UMissionSubsystem::StartMission(UMissionAsset* Mission)
 	}
 	ActiveMission = Mission;
 	MissionTally = FMissionGrade();
+	MissionItems.Reset();
 	Progress->ActiveMission = Mission->MissionId;
 	Progress->CurrentObjective = Mission->StartObjective;
 	Progress->MissionFlags.Reset();
 	SaveProgress();
+	ULearningTelemetrySubsystem::LogEvent(this, FTelemetryEvent(TEXT("mission_start"))
+		.Id(TEXT("mission"), Mission->MissionId).Id(TEXT("city"), CurrentPack ? CurrentPack->CityId : NAME_None));
 	OnMissionStarted.Broadcast(Mission);
 	OnObjectiveChanged.Broadcast();
 }
@@ -290,12 +298,50 @@ void UMissionSubsystem::CompleteObjective(FName Outcome)
 		}
 		UE_LOG(LogPersonal, Log, TEXT("Mission '%s' graded %s (%d challenges, %d mistakes, %d peeks)"), *Completed->MissionId.ToString(),
 			*UFluencyScoring::GradeLetter(LastGrade.Grade).ToString(), LastGrade.Challenges, LastGrade.Mistakes, LastGrade.Peeks);
+
+		// Fade (or restore) the handler's support based on how independently the player spoke
+		HandlerBefore = HandlerAfter = SaveSubsystem ? SaveSubsystem->GetHandlerMode(CurrentPack->CityId) : EHandlerMode::Shadowing;
+		if (SaveSubsystem)
+		{
+			HandlerAfter = AdaptHandlerMode(HandlerBefore, LastGrade.Grade);
+			if (HandlerAfter != HandlerBefore)
+			{
+				SaveSubsystem->SetHandlerMode(CurrentPack->CityId, HandlerAfter);
+			}
+		}
+		ULearningTelemetrySubsystem::LogEvent(this, FTelemetryEvent(TEXT("mission_end"))
+			.Id(TEXT("mission"), Completed->MissionId).Str(TEXT("result"), TEXT("complete")).Int(TEXT("grade"), LastGrade.Grade)
+			.Int(TEXT("challenges"), LastGrade.Challenges).Int(TEXT("mistakes"), LastGrade.Mistakes).Int(TEXT("peeks"), LastGrade.Peeks)
+			.Int(TEXT("handler_before"), static_cast<int32>(HandlerBefore)).Int(TEXT("handler_after"), static_cast<int32>(HandlerAfter)));
+
+		const TArray<FString> Debrief = SelectDebriefItems(MissionItems, Completed->DebriefItems);
 		OnMissionCompleted.Broadcast(Completed);
+
+		// Debrief: retrieval of this mission's phrases right away (the first spaced exposure), before the next briefing
+		if (!Debrief.IsEmpty())
+		{
+			UWorld* World = GetGameInstance() ? GetGameInstance()->GetWorld() : nullptr;
+			if (UConversationSubsystem* Conversations = World ? World->GetSubsystem<UConversationSubsystem>() : nullptr)
+			{
+				TArray<FSrsItemKey> Keys;
+				for (const FString& KeyString : Debrief)
+				{
+					FSrsItemKey Key;
+					if (FSrsItemKey::Parse(KeyString, Key))
+					{
+						Keys.Add(Key);
+					}
+				}
+				Conversations->StartDebrief(Keys);
+			}
+		}
 		StartNextMission();
 	}
 	else if (Next == UMissionAsset::MissionFailed)
 	{
 		UMissionAsset* Failed = ActiveMission;
+		ULearningTelemetrySubsystem::LogEvent(this, FTelemetryEvent(TEXT("mission_end"))
+			.Id(TEXT("mission"), Failed->MissionId).Str(TEXT("result"), TEXT("failed")));
 		OnMissionFailed.Broadcast(Failed);
 		StartMission(Failed); // restart from the top
 	}
@@ -328,6 +374,109 @@ bool UMissionSubsystem::GetBestGrade(FName MissionId, FMissionGrade& OutGrade) c
 		OutGrade = *Best;
 	}
 	return Best != nullptr;
+}
+
+// ---- Learning loop ----------------------------------------------------------------------------------------------
+
+void UMissionSubsystem::RecordMissionItem(const FSrsItemKey& Key, bool bPassed, bool bAssisted)
+{
+	if (ActiveMission && Key.IsValid())
+	{
+		MissionItems.Add({ Key.ToString(), bPassed, bAssisted });
+	}
+}
+
+TArray<FString> UMissionSubsystem::SelectDebriefItems(const TArray<FMissionItemRecord>& Records, int32 Max)
+{
+	// Worst result per item: 0 = failed, 1 = assisted, 2 = clean pass
+	TArray<FString> Order;
+	TMap<FString, int32> Worst;
+	for (const FMissionItemRecord& Record : Records)
+	{
+		const int32 Score = !Record.bPassed ? 0 : Record.bAssisted ? 1 : 2;
+		if (int32* Existing = Worst.Find(Record.Key))
+		{
+			*Existing = FMath::Min(*Existing, Score);
+		}
+		else
+		{
+			Worst.Add(Record.Key, Score);
+			Order.Add(Record.Key);
+		}
+	}
+	TArray<FString> Out;
+	for (int32 Score = 0; Score <= 2; ++Score)
+	{
+		for (const FString& Key : Order)
+		{
+			if (Out.Num() < Max && Worst[Key] == Score)
+			{
+				Out.Add(Key);
+			}
+		}
+	}
+	return Out;
+}
+
+EHandlerMode UMissionSubsystem::AdaptHandlerMode(EHandlerMode Current, int32 Grade)
+{
+	const int32 Level = static_cast<int32>(Current);
+	if (Grade <= 1)
+	{
+		return static_cast<EHandlerMode>(FMath::Min(Level + 1, static_cast<int32>(EHandlerMode::RadioSilence)));
+	}
+	if (Grade >= 3)
+	{
+		return static_cast<EHandlerMode>(FMath::Max(Level - 1, static_cast<int32>(EHandlerMode::Shadowing)));
+	}
+	return Current;
+}
+
+bool UMissionSubsystem::NeedsBriefing(const UMissionAsset* Mission) const
+{
+	const ULinguaSpySaveGame* Save = SaveSubsystem ? SaveSubsystem->GetSave() : nullptr;
+	return Mission && !Mission->BriefingChunks.IsEmpty() && (!Save || !Save->BriefingsCompleted.Contains(Mission->MissionId));
+}
+
+void UMissionSubsystem::MarkBriefingCompleted(const UMissionAsset* Mission, int32 Correct, int32 Total)
+{
+	if (!Mission)
+	{
+		return;
+	}
+	if (ULinguaSpySaveGame* Save = SaveSubsystem ? SaveSubsystem->GetSave() : nullptr)
+	{
+		Save->BriefingsCompleted.AddUnique(Mission->MissionId);
+		SaveProgress();
+	}
+	ULearningTelemetrySubsystem::LogEvent(this, FTelemetryEvent(TEXT("briefing_end"))
+		.Id(TEXT("mission"), Mission->MissionId).Int(TEXT("correct"), Correct).Int(TEXT("total"), Total));
+}
+
+TArray<FText> UMissionSubsystem::GetEarnedCanDos(const ULanguagePackAsset* Pack) const
+{
+	TArray<FText> Out;
+	const ULinguaSpySaveGame* Save = SaveSubsystem ? SaveSubsystem->GetSave() : nullptr;
+	const FCityProgress* Progress = (Save && Pack) ? Save->Cities.Find(Pack->CityId) : nullptr;
+	if (!Progress)
+	{
+		return Out;
+	}
+	for (const TSoftObjectPtr<UMissionAsset>& MissionPtr : Pack->Missions)
+	{
+		const UMissionAsset* Mission = MissionPtr.LoadSynchronous();
+		if (Mission && Progress->CompletedMissions.Contains(Mission->MissionId))
+		{
+			for (const FText& CanDo : Mission->CanDoStatements)
+			{
+				if (!Out.ContainsByPredicate([&CanDo](const FText& Existing) { return Existing.EqualTo(CanDo); }))
+				{
+					Out.Add(CanDo);
+				}
+			}
+		}
+	}
+	return Out;
 }
 
 // ---- Reports from the world -------------------------------------------------------------------------------------

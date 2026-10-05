@@ -11,6 +11,16 @@
 class ULanguagePackAsset;
 class ULinguaSpySaveSubsystem;
 
+struct FSrsItemKey;
+
+/** One challenge answered during the active mission (feeds the debrief). */
+struct FMissionItemRecord
+{
+	FString Key;
+	bool bPassed = false;
+	bool bAssisted = false;
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnObjectiveChanged);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMissionEvent, UMissionAsset*, Mission);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCityCompleted);
@@ -99,6 +109,35 @@ public:
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Mission")
 	bool GetBestGrade(FName MissionId, FMissionGrade& OutGrade) const;
 
+	// ---- Learning loop (briefing -> field -> debrief) ---------------------------------------------------------
+
+	/** Records a graded challenge for the debrief (called by the conversation subsystem). */
+	void RecordMissionItem(const FSrsItemKey& Key, bool bPassed, bool bAssisted);
+
+	/**
+	 *  Pure: debrief picks - failed items first, then assisted ones, then the rest (in answer order), unique, up to Max.
+	 *  Exposed for tests.
+	 */
+	static TArray<FString> SelectDebriefItems(const TArray<FMissionItemRecord>& Records, int32 Max);
+
+	/** Pure: handler support fades after a strong grade (S/A: one step less help) and returns after a weak one (C). */
+	static EHandlerMode AdaptHandlerMode(EHandlerMode Current, int32 Grade);
+
+	/** True if the mission has briefing chunks the player hasn't been through yet. */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Mission")
+	bool NeedsBriefing(const UMissionAsset* Mission) const;
+
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Mission")
+	void MarkBriefingCompleted(const UMissionAsset* Mission, int32 Correct, int32 Total);
+
+	/** Handler mode before/after the last mission's adaptation (equal if unchanged). */
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Mission")
+	void GetLastHandlerChange(EHandlerMode& OutBefore, EHandlerMode& OutAfter) const { OutBefore = HandlerBefore; OutAfter = HandlerAfter; }
+
+	/** Can-do statements of every completed mission in a city. */
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Mission")
+	TArray<FText> GetEarnedCanDos(const ULanguagePackAsset* Pack) const;
+
 	// ---- Reports from the world -----------------------------------------------------------------------------
 
 	void ReportConversationFinished(FName NpcTargetId, FName Outcome);
@@ -142,4 +181,8 @@ private:
 
 	FMissionGrade MissionTally;
 	FMissionGrade LastGrade;
+
+	TArray<FMissionItemRecord> MissionItems;
+	EHandlerMode HandlerBefore = EHandlerMode::Shadowing;
+	EHandlerMode HandlerAfter = EHandlerMode::Shadowing;
 };

@@ -27,6 +27,7 @@ void ULinguaSpyAudioSubsystem::Deinitialize()
 		SaveSubsystem->OnSettingsChanged.RemoveAll(this);
 	}
 	Loops.Reset();
+	VoiceComponent.Reset();
 	Super::Deinitialize();
 }
 
@@ -39,6 +40,7 @@ float ULinguaSpyAudioSubsystem::GetChannelVolume(ESpyAudioChannel Channel) const
 	{
 	case ESpyAudioChannel::Music:    return Mix->MusicVolume * Master * (Player ? Player->MusicVolume : 1.f);
 	case ESpyAudioChannel::Ambience: return Mix->AmbientVolume * Master * (Player ? Player->AmbienceVolume : 1.f);
+	case ESpyAudioChannel::Voice:    return Mix->VoiceVolume * Master * (Player ? Player->VoiceVolume : 1.f);
 	}
 	return 0.f;
 }
@@ -103,10 +105,66 @@ UAudioComponent* ULinguaSpyAudioSubsystem::PlayLoop(const UObject* WorldContext,
 void ULinguaSpyAudioSubsystem::ApplyVolumes()
 {
 	Loops.RemoveAll([](const FLiveLoop& Loop) { return !Loop.Component.IsValid(); });
+	const float Duck = bDucked ? GetDefault<ULinguaSpyAudioSettings>()->MusicDuckFactor : 1.f;
 	for (const FLiveLoop& Loop : Loops)
 	{
-		Loop.Component->AdjustVolume(0.15f, GetChannelVolume(Loop.Channel));
+		const float Volume = GetChannelVolume(Loop.Channel) * (Loop.Channel == ESpyAudioChannel::Music ? Duck : 1.f);
+		Loop.Component->AdjustVolume(0.25f, Volume);
 	}
+	if (UAudioComponent* Voice = VoiceComponent.Get())
+	{
+		Voice->SetVolumeMultiplier(GetChannelVolume(ESpyAudioChannel::Voice));
+	}
+}
+
+bool ULinguaSpyAudioSubsystem::PlayVoice(const UObject* WorldContext, USoundBase* Sound, float Pitch)
+{
+	StopVoice();
+	const float Volume = GetChannelVolume(ESpyAudioChannel::Voice);
+	if (!WorldContext || !Sound || Volume <= KINDA_SMALL_NUMBER)
+	{
+		return false;
+	}
+	UAudioComponent* Component = UGameplayStatics::CreateSound2D(WorldContext, Sound, Volume, Pitch, 0.f, nullptr, false, true);
+	if (!Component)
+	{
+		return false;
+	}
+	Component->bIsUISound = true; // keeps playing while the game is paused (briefing, assessment)
+	Component->OnAudioFinished.AddUniqueDynamic(this, &ULinguaSpyAudioSubsystem::HandleVoiceFinished);
+	Component->Play();
+	VoiceComponent = Component;
+	bDucked = true;
+	ApplyVolumes();
+	return true;
+}
+
+void ULinguaSpyAudioSubsystem::StopVoice()
+{
+	if (UAudioComponent* Voice = VoiceComponent.Get())
+	{
+		Voice->OnAudioFinished.RemoveAll(this);
+		Voice->Stop();
+	}
+	VoiceComponent.Reset();
+	if (bDucked)
+	{
+		bDucked = false;
+		ApplyVolumes();
+	}
+}
+
+bool ULinguaSpyAudioSubsystem::IsVoicePlaying() const
+{
+	const UAudioComponent* Voice = VoiceComponent.Get();
+	return Voice && Voice->IsPlaying();
+}
+
+void ULinguaSpyAudioSubsystem::HandleVoiceFinished()
+{
+	VoiceComponent.Reset();
+	bDucked = false;
+	ApplyVolumes();
 }
 
 namespace LinguaSpyAudio
@@ -131,6 +189,21 @@ namespace LinguaSpyAudio
 		if (ULinguaSpyAudioSubsystem* Audio = GetAudio(WorldContext))
 		{
 			Audio->PlayLoop(WorldContext, Sound, Channel);
+		}
+	}
+
+	bool PlayVoice(const UObject* WorldContext, const TSoftObjectPtr<USoundBase>& Sound, float Pitch)
+	{
+		ULinguaSpyAudioSubsystem* Audio = GetAudio(WorldContext);
+		USoundBase* Loaded = Sound.IsNull() ? nullptr : Sound.LoadSynchronous();
+		return Audio && Loaded && Audio->PlayVoice(WorldContext, Loaded, Pitch);
+	}
+
+	void StopVoice(const UObject* WorldContext)
+	{
+		if (ULinguaSpyAudioSubsystem* Audio = GetAudio(WorldContext))
+		{
+			Audio->StopVoice();
 		}
 	}
 }

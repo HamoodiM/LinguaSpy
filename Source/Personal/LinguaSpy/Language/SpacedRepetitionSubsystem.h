@@ -56,6 +56,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|SRS")
 	int32 GetDueCount(FName CityId) const;
 
+	/** Schedule of one item, or nullptr if never answered. */
+	const FSrsItemState* FindState(const FSrsItemKey& Key) const;
+
 	/** Number of items the player has passed at least once in a city. */
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|SRS")
 	int32 GetLearnedCount(FName CityId) const;

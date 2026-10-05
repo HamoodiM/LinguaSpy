@@ -33,6 +33,12 @@ private:
 
 	void RebuildFilters();
 	void RebuildList();
+
+	/** Field notes (grammar) the player has unlocked in this pack's language. */
+	TArray<struct FGrammarNote> GetSeenNotes() const;
+
+	/** Pseudo skill filter that lists field notes instead of phrases. */
+	static const FName FieldNotesFilter;
 	UWidget* MakeEntry(const FSrsItemView& Item);
 
 	UFUNCTION()

@@ -72,3 +72,54 @@ void ULinguaSpySaveSubsystem::SetVolumes(float Master, float Music, float Ambien
 	Settings.UIVolume = FMath::Clamp(UI, 0.f, 1.f);
 	OnSettingsChanged.Broadcast();
 }
+
+void ULinguaSpySaveSubsystem::SetVoiceVolume(float Voice)
+{
+	Save->Settings.VoiceVolume = FMath::Clamp(Voice, 0.f, 1.f);
+	OnSettingsChanged.Broadcast();
+}
+
+void ULinguaSpySaveSubsystem::SetTelemetryEnabled(bool bEnabled)
+{
+	Save->Settings.bTelemetryEnabled = bEnabled;
+	OnSettingsChanged.Broadcast();
+	RequestSave();
+}
+
+void ULinguaSpySaveSubsystem::SetHandlerMode(FName CityId, EHandlerMode Mode)
+{
+	if (!CityId.IsNone())
+	{
+		Save->HandlerModes.Add(CityId, Mode);
+		OnSettingsChanged.Broadcast();
+		RequestSave();
+	}
+}
+
+bool ULinguaSpySaveSubsystem::IsValidParticipantCode(const FString& Code)
+{
+	if (Code.IsEmpty() || Code.Len() > 8)
+	{
+		return false;
+	}
+	for (const TCHAR C : Code)
+	{
+		if (!(FChar::IsAlnum(C) && C < 128) && C != TEXT('-'))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool ULinguaSpySaveSubsystem::SetParticipantCode(const FString& Code)
+{
+	const FString Upper = Code.TrimStartAndEnd().ToUpper();
+	if (!IsValidParticipantCode(Upper))
+	{
+		return false;
+	}
+	Save->ParticipantCode = Upper;
+	RequestSave();
+	return true;
+}

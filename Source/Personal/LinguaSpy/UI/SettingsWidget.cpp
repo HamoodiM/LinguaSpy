@@ -4,6 +4,9 @@
 #include "LinguaSpySaveSubsystem.h"
 #include "LinguaSpyStyle.h"
 #include "LinguaSpyAudio.h"
+#include "LanguagePackAsset.h"
+#include "LearningTelemetrySubsystem.h"
+#include "MissionSubsystem.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Button.h"
 #include "Components/HorizontalBox.h"
@@ -81,22 +84,34 @@ void USettingsWidget::BuildContent()
 	MusicSlider = AddSliderRow(LOCTEXT("Music", "Music"), Settings.MusicVolume, ValueText);
 	AmbienceSlider = AddSliderRow(LOCTEXT("Ambience", "Ambience"), Settings.AmbienceVolume, ValueText);
 	UISlider = AddSliderRow(LOCTEXT("UI", "Interface"), Settings.UIVolume, ValueText);
+	VoiceSlider = AddSliderRow(LOCTEXT("Voice", "Voices"), Settings.VoiceVolume, ValueText);
 
 	AddRow(ContentBox, MakeText(LOCTEXT("Language", "Language help"), 22, Accent, true), 28.f);
 
 	UTextBlock* Label = nullptr;
-	UButton* TranslationButton = MakeButton(FText::GetEmpty(), &Label);
+	UButton* HandlerButton = MakeButton(FText::GetEmpty(), &Label);
 	TranslationLabel = Label;
-	TranslationButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleTranslationToggle);
-	AddRow(ContentBox, TranslationButton, 12.f);
-	AddRow(ContentBox, MakeText(LOCTEXT("TranslationHint",
-		"Off: tap Translate on a line when you need the helper. Answers given after peeking count as assisted and lower your mission grade."),
-		15, TextMuted), 6.f);
+	HandlerButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleHandlerToggle);
+	AddRow(ContentBox, HandlerButton, 12.f);
+	HandlerHint = MakeText(FText::GetEmpty(), 15, TextMuted);
+	AddRow(ContentBox, HandlerHint, 6.f);
 
 	UButton* ReadingsButton = MakeButton(FText::GetEmpty(), &Label);
 	ReadingsLabel = Label;
 	ReadingsButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleReadingsToggle);
 	AddRow(ContentBox, ReadingsButton, 14.f);
+
+	AddRow(ContentBox, MakeText(LOCTEXT("Privacy", "Learning log"), 22, Accent, true), 28.f);
+	UButton* TelemetryButton = MakeButton(FText::GetEmpty(), &Label);
+	TelemetryLabel = Label;
+	TelemetryButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleTelemetryToggle);
+	AddRow(ContentBox, TelemetryButton, 12.f);
+	AddRow(ContentBox, MakeText(LOCTEXT("TelemetryHint",
+		"Saves your answers, hints and timings to a file on this computer (Saved/Telemetry) so you or a teacher can see "
+		"what's working. Nothing is ever sent anywhere."), 15, TextMuted), 6.f);
+	UButton* LogsButton = MakeButton(LOCTEXT("OpenLogs", "Open log folder"));
+	LogsButton->OnClicked.AddDynamic(this, &USettingsWidget::HandleOpenLogs);
+	AddRow(ContentBox, LogsButton, 8.f);
 
 	RefreshLabels();
 }
@@ -106,16 +121,35 @@ void USettingsWidget::RefreshLabels()
 	const ULinguaSpySaveSubsystem* Save = GetSave();
 	const FLinguaSpySettings Settings = Save ? Save->GetSettings() : FLinguaSpySettings();
 
-	const float Values[] = { Settings.MasterVolume, Settings.MusicVolume, Settings.AmbienceVolume, Settings.UIVolume };
+	const float Values[] = { Settings.MasterVolume, Settings.MusicVolume, Settings.AmbienceVolume, Settings.UIVolume, Settings.VoiceVolume };
 	for (int32 i = 0; i < ValueTexts.Num() && i < UE_ARRAY_COUNT(Values); ++i)
 	{
 		ValueTexts[i]->SetText(FText::AsPercent(Values[i]));
 	}
-	if (TranslationLabel)
+	if (TranslationLabel && Save)
 	{
-		TranslationLabel->SetText(Settings.bAlwaysShowTranslation
-			? LOCTEXT("TranslationOn", "Always show translations: ON")
-			: LOCTEXT("TranslationOff", "Always show translations: OFF"));
+		const FName City = GetHandlerCity();
+		const TArray<FName> Cities = GetAllCityIds();
+		const EHandlerMode Mode = Save->GetHandlerMode(City.IsNone() && !Cities.IsEmpty() ? Cities[0] : City);
+		const FText ModeName = Mode == EHandlerMode::Shadowing ? LOCTEXT("Shadowing", "Shadowing")
+			: Mode == EHandlerMode::OnCall ? LOCTEXT("OnCall", "On call") : LOCTEXT("RadioSilenceMode", "Radio silence");
+		TranslationLabel->SetText(City.IsNone()
+			? FText::Format(LOCTEXT("HandlerAll", "Handler (all cities): {0}"), ModeName)
+			: FText::Format(LOCTEXT("HandlerCity", "Handler in {0}: {1}"), FText::FromName(City), ModeName));
+		if (HandlerHint)
+		{
+			HandlerHint->SetText(Mode == EHandlerMode::Shadowing
+				? LOCTEXT("ShadowingHint", "Shadowing: every line is translated for you. Best for your first missions in a language.")
+				: Mode == EHandlerMode::OnCall
+				? LOCTEXT("OnCallHint", "On call: tap Translate when you need it (lowers your grade a little).")
+				: LOCTEXT("RadioHint", "Radio silence: only 2 translations per conversation. For confident agents."));
+		}
+	}
+	if (TelemetryLabel)
+	{
+		TelemetryLabel->SetText(Settings.bTelemetryEnabled
+			? LOCTEXT("TelemetryOn", "Keep a learning log: ON")
+			: LOCTEXT("TelemetryOff", "Keep a learning log: OFF"));
 	}
 	if (ReadingsLabel)
 	{
@@ -130,18 +164,69 @@ void USettingsWidget::HandleSliderChanged(float Value)
 	if (ULinguaSpySaveSubsystem* Save = GetSave())
 	{
 		Save->SetVolumes(MasterSlider->GetValue(), MusicSlider->GetValue(), AmbienceSlider->GetValue(), UISlider->GetValue());
+		Save->SetVoiceVolume(VoiceSlider->GetValue());
 	}
 	RefreshLabels();
 }
 
-void USettingsWidget::HandleTranslationToggle()
+FName USettingsWidget::GetHandlerCity() const
+{
+	const UMissionSubsystem* Missions = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMissionSubsystem>() : nullptr;
+	return Missions ? Missions->GetCurrentCityId() : NAME_None;
+}
+
+TArray<FName> USettingsWidget::GetAllCityIds() const
+{
+	TArray<FName> Out;
+	if (const UMissionSubsystem* Missions = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMissionSubsystem>() : nullptr)
+	{
+		for (const ULanguagePackAsset* Pack : Missions->GetAllLanguagePacks())
+		{
+			Out.Add(Pack->CityId);
+		}
+	}
+	return Out;
+}
+
+void USettingsWidget::HandleHandlerToggle()
+{
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+	ULinguaSpySaveSubsystem* Save = GetSave();
+	if (!Save)
+	{
+		return;
+	}
+	const FName City = GetHandlerCity();
+	const TArray<FName> Cities = City.IsNone() ? GetAllCityIds() : TArray<FName>{ City };
+	if (Cities.IsEmpty())
+	{
+		return;
+	}
+	const EHandlerMode Next = static_cast<EHandlerMode>((static_cast<int32>(Save->GetHandlerMode(Cities[0])) + 1) % 3);
+	for (const FName Id : Cities)
+	{
+		Save->SetHandlerMode(Id, Next);
+	}
+	RefreshLabels();
+}
+
+void USettingsWidget::HandleTelemetryToggle()
 {
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (ULinguaSpySaveSubsystem* Save = GetSave())
 	{
-		Save->SetAlwaysShowTranslation(!Save->GetSettings().bAlwaysShowTranslation);
+		Save->SetTelemetryEnabled(!Save->GetSettings().bTelemetryEnabled);
 	}
 	RefreshLabels();
+}
+
+void USettingsWidget::HandleOpenLogs()
+{
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+	if (const ULearningTelemetrySubsystem* Telemetry = GetGameInstance() ? GetGameInstance()->GetSubsystem<ULearningTelemetrySubsystem>() : nullptr)
+	{
+		Telemetry->OpenLogFolder();
+	}
 }
 
 void USettingsWidget::HandleReadingsToggle()

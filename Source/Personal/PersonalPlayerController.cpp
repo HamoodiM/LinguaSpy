@@ -19,6 +19,10 @@
 #include "ConversationWidget.h"
 #include "SpyHUDWidget.h"
 #include "PauseMenuWidget.h"
+#include "BriefingWidget.h"
+#include "FieldNoteWidget.h"
+#include "MissionSubsystem.h"
+#include "LanguagePackAsset.h"
 #include "Kismet/GameplayStatics.h"
 #include "Blueprint/UserWidget.h"
 
@@ -69,6 +73,16 @@ void APersonalPlayerController::BeginPlay()
 	{
 		Conversations->OnConversationStarted.AddUniqueDynamic(this, &APersonalPlayerController::HandleConversationStarted);
 		Conversations->OnConversationEnded.AddUniqueDynamic(this, &APersonalPlayerController::HandleConversationEnded);
+		Conversations->OnFieldNoteUnlocked.AddUniqueDynamic(this, &APersonalPlayerController::HandleFieldNote);
+	}
+	if (UMissionSubsystem* Missions = GetGameInstance()->GetSubsystem<UMissionSubsystem>())
+	{
+		Missions->OnMissionStarted.AddUniqueDynamic(this, &APersonalPlayerController::HandleMissionStarted);
+		// The city's mission started before this controller existed (GameMode::StartPlay)
+		if (Missions->GetActiveMission())
+		{
+			HandleMissionStarted(Missions->GetActiveMission());
+		}
 	}
 
 	FInputModeGameAndUI InputMode;
@@ -138,6 +152,54 @@ void APersonalPlayerController::HandleConversationEnded()
 	if (HUDWidget)
 	{
 		HUDWidget->SetHint(NSLOCTEXT("LinguaSpy", "DefaultHint", "Click a local to talk to them. P: pause."));
+	}
+	if (bBriefingPending)
+	{
+		TryOpenBriefing();
+	}
+}
+
+void APersonalPlayerController::HandleMissionStarted(UMissionAsset* Mission)
+{
+	bBriefingPending = true;
+	TryOpenBriefing();
+}
+
+void APersonalPlayerController::TryOpenBriefing()
+{
+	UMissionSubsystem* Missions = GetGameInstance() ? GetGameInstance()->GetSubsystem<UMissionSubsystem>() : nullptr;
+	UMissionAsset* Mission = Missions ? Missions->GetActiveMission() : nullptr;
+	if (!Mission || !Missions->NeedsBriefing(Mission))
+	{
+		bBriefingPending = false;
+		return;
+	}
+	// Wait for a running conversation / debrief to finish first
+	if (IsInConversation() || (BriefingWidget && BriefingWidget->IsInViewport()))
+	{
+		return;
+	}
+	bBriefingPending = false;
+	BriefingWidget = CreateWidget<UBriefingWidget>(this, UBriefingWidget::StaticClass());
+	BriefingWidget->OnClosed.AddDynamic(this, &APersonalPlayerController::HandleBriefingClosed);
+	BriefingWidget->Open();
+	BriefingWidget->SetMission(Mission, Missions->GetCurrentPack());
+	StopMovement();
+	UGameplayStatics::SetGamePaused(this, true);
+}
+
+void APersonalPlayerController::HandleBriefingClosed()
+{
+	UGameplayStatics::SetGamePaused(this, false);
+	BriefingWidget = nullptr;
+}
+
+void APersonalPlayerController::HandleFieldNote(const FGrammarNote& Note)
+{
+	if (UFieldNoteWidget* Card = CreateWidget<UFieldNoteWidget>(this, UFieldNoteWidget::StaticClass()))
+	{
+		Card->Open();
+		Card->SetNote(Note);
 	}
 }
 

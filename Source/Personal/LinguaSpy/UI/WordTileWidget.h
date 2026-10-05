@@ -47,6 +47,9 @@ public:
 	/** Smaller, wider variant used for choice buttons. */
 	void SetChoiceStyle();
 
+	/** Uses a language's font for the word (e.g. a CJK font). Null keeps the default. */
+	void SetNativeFont(class UFont* Font);
+
 	UFUNCTION(BlueprintCallable, Category="Tile")
 	void SetTileState(EWordTileState NewState);
 

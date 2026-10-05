@@ -7,6 +7,7 @@
 #include "MissionSubsystem.h"
 #include "PhrasebookWidget.h"
 #include "SettingsWidget.h"
+#include "BriefingWidget.h"
 #include "FluencyScoring.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
@@ -33,6 +34,7 @@ void UPauseMenuWidget::NativeOnInitialized()
 	}
 	if (ResumeButton)   { ResumeButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleResume); }
 	if (PhrasebookButton) { PhrasebookButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandlePhrasebook); }
+	if (BriefingButton)   { BriefingButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleBriefing); }
 	if (SettingsButton)   { SettingsButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleSettings); }
 	if (MenuButton)     { MenuButton->OnClicked.AddDynamic(this, &UPauseMenuWidget::HandleMenu); }
 	RefreshLabels();
@@ -109,6 +111,9 @@ void UPauseMenuWidget::BuildDefaultLayout()
 	UTextBlock* MenuLabel = nullptr;
 	ResumeButton = MakeButton(TEXT("ResumeButton"), ResumeLabel);
 	ResumeLabel->SetText(LOCTEXT("Resume", "Resume"));
+	UTextBlock* BriefingLabel = nullptr;
+	BriefingButton = MakeButton(TEXT("BriefingButton"), BriefingLabel);
+	BriefingLabel->SetText(LOCTEXT("Briefing", "Mission phrases (briefing)"));
 	UTextBlock* PhrasebookLabel = nullptr;
 	PhrasebookButton = MakeButton(TEXT("PhrasebookButton"), PhrasebookLabel);
 	PhrasebookLabel->SetText(LOCTEXT("Phrasebook", "Phrasebook"));
@@ -125,6 +130,11 @@ void UPauseMenuWidget::RefreshLabels()
 	if (!TallyText)
 	{
 		return;
+	}
+	if (BriefingButton)
+	{
+		const UMissionAsset* Active = Missions ? Missions->GetActiveMission() : nullptr;
+		BriefingButton->SetVisibility(Active && !Active->BriefingChunks.IsEmpty() ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
 	if (!Missions || !Missions->GetActiveMission())
 	{
@@ -152,6 +162,18 @@ void UPauseMenuWidget::HandlePhrasebook()
 		Phrasebook->SetPack(Missions ? Missions->GetCurrentPack() : nullptr);
 		Phrasebook->Open();
 		OpenOverlays.Add(Phrasebook);
+	}
+}
+
+void UPauseMenuWidget::HandleBriefing()
+{
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+	UMissionSubsystem* Missions = GetGameInstance()->GetSubsystem<UMissionSubsystem>();
+	if (UBriefingWidget* Briefing = Missions ? CreateWidget<UBriefingWidget>(GetOwningPlayer(), UBriefingWidget::StaticClass()) : nullptr)
+	{
+		Briefing->Open();
+		Briefing->SetMission(Missions->GetActiveMission(), Missions->GetCurrentPack(), true);
+		OpenOverlays.Add(Briefing);
 	}
 }
 

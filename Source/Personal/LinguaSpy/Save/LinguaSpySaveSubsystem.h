@@ -46,6 +46,27 @@ public:
 	void SetVolumes(float Master, float Music, float Ambience, float UI);
 
 	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
+	void SetVoiceVolume(float Voice);
+
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
+	void SetTelemetryEnabled(bool bEnabled);
+
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Save")
+	EHandlerMode GetHandlerMode(FName CityId) const { return Save->GetHandlerMode(CityId); }
+
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
+	void SetHandlerMode(FName CityId, EHandlerMode Mode);
+
+	/** Pilot participant code: letters, digits and '-', at most 8 characters (never a name). Returns false if rejected. */
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
+	bool SetParticipantCode(const FString& Code);
+
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Save")
+	FString GetParticipantCode() const { return Save->ParticipantCode; }
+
+	static bool IsValidParticipantCode(const FString& Code);
+
+	UFUNCTION(BlueprintCallable, Category="LinguaSpy|Save")
 	void SaveSettings() { RequestSave(); }
 
 	UPROPERTY(BlueprintAssignable, Category="LinguaSpy|Save")

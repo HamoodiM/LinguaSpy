@@ -297,10 +297,24 @@ void USpyHUDWidget::HandleMissionCompleted(UMissionAsset* Mission)
 		: Grade.Grade == 1 ? LOCTEXT("VerdictA", "Smooth. The locals never suspected a thing.")
 		: Grade.Grade == 2 ? LOCTEXT("VerdictB", "You got through, with your handler's help.")
 		: LOCTEXT("VerdictC", "Mission done - but you leaned on the helper. Drill in the Safe house.");
+	FString Extra;
+	for (const FText& CanDo : Mission->CanDoStatements)
+	{
+		Extra += FString::Printf(TEXT("\nYou can now: %s"), *CanDo.ToString());
+	}
+	EHandlerMode Before;
+	EHandlerMode After;
+	Missions->GetLastHandlerChange(Before, After);
+	if (After != Before)
+	{
+		Extra += static_cast<int32>(After) > static_cast<int32>(Before)
+			? LOCTEXT("HandlerUp", "\nHandler: \"You don't need me as much now - I'll step back.\" (Settings to change)").ToString()
+			: LOCTEXT("HandlerDown", "\nHandler: \"I'll stay closer for a while.\" (Settings to change)").ToString();
+	}
 	ShowBanner(FText::Format(LOCTEXT("MissionCompleteGrade", "MISSION COMPLETE - GRADE {0}"), UFluencyScoring::GradeLetter(Grade.Grade)),
-		FText::Format(LOCTEXT("Debrief", "{0}\n{1}\n{2} {2}|plural(one=answer,other=answers), {3} {3}|plural(one=mistake,other=mistakes), {4} {4}|plural(one=translation,other=translations) peeked.  Best: {5}"),
-			Mission->Title, Verdict, Grade.Challenges, Grade.Mistakes, Grade.Peeks, UFluencyScoring::GradeLetter(Best.Grade)),
-		7.f);
+		FText::Format(LOCTEXT("Debrief", "{0}\n{1}\n{2} {2}|plural(one=answer,other=answers), {3} {3}|plural(one=mistake,other=mistakes), {4} {4}|plural(one=translation,other=translations) peeked.  Best: {5}{6}"),
+			Mission->Title, Verdict, Grade.Challenges, Grade.Mistakes, Grade.Peeks, UFluencyScoring::GradeLetter(Best.Grade), FText::FromString(Extra)),
+		9.f);
 }
 
 void USpyHUDWidget::HandleMissionFailed(UMissionAsset* Mission)

@@ -28,7 +28,9 @@ UENUM(BlueprintType)
 enum class ESpyAudioChannel : uint8
 {
 	Music,
-	Ambience
+	Ambience,
+	/** Spoken lines (one-shots via PlayVoice; music ducks under them). */
+	Voice
 };
 
 /** Project Settings -> Game -> LinguaSpy Audio. Sounds are loaded on first use. */
@@ -76,6 +78,13 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category="Mix", meta=(ClampMin="0", ClampMax="2"))
 	float MusicVolume = 0.35f;
 
+	UPROPERTY(Config, EditAnywhere, Category="Mix", meta=(ClampMin="0", ClampMax="2"))
+	float VoiceVolume = 1.f;
+
+	/** Music volume multiplier while a voice line plays. */
+	UPROPERTY(Config, EditAnywhere, Category="Mix", meta=(ClampMin="0", ClampMax="1"))
+	float MusicDuckFactor = 0.5f;
+
 	/** Fade time for looping music/ambience when a level starts. */
 	UPROPERTY(Config, EditAnywhere, Category="Mix", meta=(ClampMin="0"))
 	float LoopFadeInSeconds = 1.5f;
@@ -100,6 +109,15 @@ public:
 	/** Spawns a 2D loop that stops when its level unloads. The sound asset itself must be set to loop. */
 	UAudioComponent* PlayLoop(const UObject* WorldContext, const TSoftObjectPtr<USoundBase>& Sound, ESpyAudioChannel Channel);
 
+	/** Plays a spoken line, replacing any line still playing, and ducks the music under it. Returns false if nothing plays. */
+	bool PlayVoice(const UObject* WorldContext, USoundBase* Sound, float Pitch = 1.f);
+
+	/** Stops the current spoken line (e.g. the conversation closed). */
+	void StopVoice();
+
+	UFUNCTION(BlueprintPure, Category="LinguaSpy|Audio")
+	bool IsVoicePlaying() const;
+
 	/** Effective volume for a channel right now. */
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Audio")
 	float GetChannelVolume(ESpyAudioChannel Channel) const;
@@ -120,6 +138,12 @@ private:
 	};
 	TArray<FLiveLoop> Loops;
 
+	UFUNCTION()
+	void HandleVoiceFinished();
+
+	TWeakObjectPtr<UAudioComponent> VoiceComponent;
+	bool bDucked = false;
+
 	UPROPERTY()
 	TObjectPtr<ULinguaSpySaveSubsystem> SaveSubsystem;
 };
@@ -131,4 +155,9 @@ namespace LinguaSpyAudio
 
 	/** Spawns a looping 2D sound (ambience/music) that stops when the level unloads. */
 	PERSONAL_API void PlayLoop(const UObject* WorldContext, const TSoftObjectPtr<USoundBase>& Sound, ESpyAudioChannel Channel);
+
+	/** Loads and plays a spoken line on the Voice channel. Returns false if the line has no audio. */
+	PERSONAL_API bool PlayVoice(const UObject* WorldContext, const TSoftObjectPtr<USoundBase>& Sound, float Pitch = 1.f);
+
+	PERSONAL_API void StopVoice(const UObject* WorldContext);
 }

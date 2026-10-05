@@ -8,6 +8,7 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Engine/Font.h"
 
 void UWordTileWidget::NativeOnInitialized()
 {
@@ -117,6 +118,17 @@ void UWordTileWidget::SetChoiceStyle()
 	if (TileText)
 	{
 		LinguaSpyStyle::StyleText(TileText, 17, LinguaSpyStyle::TileText, true);
+	}
+}
+
+void UWordTileWidget::SetNativeFont(UFont* Font)
+{
+	if (TileText && Font)
+	{
+		FSlateFontInfo Info = TileText->GetFont();
+		Info.FontObject = Font;
+		Info.TypefaceFontName = NAME_None;
+		TileText->SetFont(Info);
 	}
 }
 

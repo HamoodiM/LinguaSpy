@@ -11,6 +11,34 @@ class UMissionAsset;
 class UFont;
 class USoundBase;
 
+/**
+ *  A short explicit grammar note ("field note"), shown once the learner has met the pattern a few times
+ *  (noticing + brief explicit instruction: docs/Learning_Design.md section 4).
+ */
+USTRUCT(BlueprintType)
+struct PERSONAL_API FGrammarNote
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Grammar")
+	FName NoteId;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Grammar")
+	FText Title;
+
+	/** 2-4 lines: the pattern, then examples the player has already seen. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Grammar", meta=(MultiLine=true))
+	FText Body;
+
+	/** A graded answer containing any of these tokens counts as an encounter (case-insensitive, e.g. "voudrais"). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Grammar")
+	TArray<FString> TriggerTokens;
+
+	/** Encounters before the note pops up. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Grammar", meta=(ClampMin="1"))
+	int32 TriggerAfter = 2;
+};
+
 /** Describes one playable city and the language learned there (e.g. Paris / French). */
 UCLASS(BlueprintType)
 class PERSONAL_API ULanguagePackAsset : public UPrimaryDataAsset
@@ -49,6 +77,16 @@ public:
 	/** True if lines/tiles carry readings (romaji); enables the romaji toggle. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Language")
 	bool bHasReadings = false;
+
+	/** Allows the typing scaffolds (gap-fill / produce). Only used when bUsesWordSpacing (no IME support yet). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Language")
+	bool bAllowTypedInput = true;
+
+	/** Field notes for this language. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Learning", meta=(TitleProperty="Title"))
+	TArray<FGrammarNote> GrammarNotes;
+
+	bool CanType() const { return bAllowTypedInput && bUsesWordSpacing; }
 
 	/** Optional font for target-language text (e.g. a CJK font). Uses the default font if unset. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Language")

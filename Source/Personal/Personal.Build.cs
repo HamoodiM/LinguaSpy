@@ -22,19 +22,14 @@ public class Personal : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
-			"DeveloperSettings"
+			"DeveloperSettings",
+			"Json"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		PublicIncludePaths.AddRange(new string[] {
 			"Personal",
-			"Personal/Variant_Strategy",
-			"Personal/Variant_Strategy/UI",
-			"Personal/Variant_TwinStick",
-			"Personal/Variant_TwinStick/AI",
-			"Personal/Variant_TwinStick/Gameplay",
-			"Personal/Variant_TwinStick/UI",
 			"Personal/LinguaSpy/Data",
 			"Personal/LinguaSpy/Language",
 			"Personal/LinguaSpy/Dialogue",
@@ -44,7 +39,9 @@ public class Personal : ModuleRules
 			"Personal/LinguaSpy/Mission",
 			"Personal/LinguaSpy/Save",
 			"Personal/LinguaSpy/Camera",
-			"Personal/LinguaSpy/Audio"
+			"Personal/LinguaSpy/Audio",
+			"Personal/LinguaSpy/Telemetry",
+			"Personal/LinguaSpy/Assessment"
 		});
 
 		// Uncomment if you are using Slate UI

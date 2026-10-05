@@ -65,6 +65,21 @@ namespace
 		{
 			Out.Add(FText::Format(LOCTEXT("NoSkill", "{0}: challenge has no SkillTag"), FText::FromString(Where)));
 		}
+		const int32 AnswerLen = Challenge.AcceptedAnswers.IsEmpty() ? 0 : Challenge.AcceptedAnswers[0].Tokens.Num();
+		for (const int32 Gap : Challenge.GapTokenIndices)
+		{
+			if (Gap < 0 || Gap >= AnswerLen)
+			{
+				Out.Add(FText::Format(LOCTEXT("BadGap", "{0}: gap index {1} is outside the first answer"), FText::FromString(Where), Gap));
+			}
+		}
+		for (const FChallengeHint& Hint : Challenge.Hints)
+		{
+			if (Hint.TokenIndex >= AnswerLen || Hint.Text.IsEmpty())
+			{
+				Out.Add(FText::Format(LOCTEXT("BadHint", "{0}: hint for token {1} is empty or out of range"), FText::FromString(Where), Hint.TokenIndex));
+			}
+		}
 	}
 }
 
@@ -137,6 +152,12 @@ TArray<FText> UConversationAsset::Validate() const
 				CheckLink(Node.NodeId, Choice.FailNode, TEXT("choice FailNode"));
 				Reachable.Add(Choice.NextNode);
 				Reachable.Add(Choice.FailNode);
+			}
+			break;
+		case EConversationNodeType::IntelCheck:
+			if (Node.Intel.Options.Num() < 2 || !Node.Intel.Options.IsValidIndex(Node.Intel.CorrectIndex) || Node.Intel.Question.IsEmpty())
+			{
+				Out.Add(FText::Format(LOCTEXT("BadIntel", "Intel node '{0}' needs a question, 2+ options and a valid CorrectIndex"), FText::FromName(Node.NodeId)));
 			}
 			break;
 		default:

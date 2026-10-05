@@ -1,4 +1,4 @@
-// LinguaSpy - conversation panel: NPC line, helper translation, choices, word-tile answer builder
+// LinguaSpy - conversation panel: NPC line, helper translation, choices, scaffolded answer input, intel checks
 
 #include "ConversationWidget.h"
 #include "WordTileWidget.h"
@@ -6,12 +6,14 @@
 #include "LanguagePackAsset.h"
 #include "LinguaSpySaveSubsystem.h"
 #include "NpcCharacter.h"
+#include "SentenceGrader.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/ButtonSlot.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/EditableTextBox.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/SizeBox.h"
@@ -42,10 +44,13 @@ void UConversationWidget::NativeOnInitialized()
 
 	if (HelperToggleButton)  { HelperToggleButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleHelperToggle); }
 	if (ReadingToggleButton) { ReadingToggleButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleReadingToggle); }
+	if (RepeatButton)        { RepeatButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleRepeat); }
+	if (SlowButton)          { SlowButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleSlow); }
 	if (ClearButton)         { ClearButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleClear); }
 	if (SubmitButton)        { SubmitButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleSubmit); }
 	if (ContinueButton)      { ContinueButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleContinue); }
 	if (LeaveButton)         { LeaveButton->OnClicked.AddDynamic(this, &UConversationWidget::HandleLeave); }
+	if (TypeBox)             { TypeBox->OnTextCommitted.AddDynamic(this, &UConversationWidget::HandleTypeCommitted); }
 
 	SetVisibility(ESlateVisibility::Collapsed);
 }
@@ -60,7 +65,8 @@ void UConversationWidget::NativeConstruct()
 		Conversations->OnConversationEnded.AddUniqueDynamic(this, &UConversationWidget::HandleConversationEnded);
 		Conversations->OnNodeEntered.AddUniqueDynamic(this, &UConversationWidget::HandleNodeEntered);
 		Conversations->OnChallengeReady.AddUniqueDynamic(this, &UConversationWidget::HandleChallengeReady);
-		Conversations->OnAnswerGraded.AddUniqueDynamic(this, &UConversationWidget::HandleAnswerGraded);
+		Conversations->OnAnswerFeedback.AddUniqueDynamic(this, &UConversationWidget::HandleAnswerFeedback);
+		Conversations->OnIntelAnswered.AddUniqueDynamic(this, &UConversationWidget::HandleIntelAnswered);
 		Conversations->OnCoverBlown.AddUniqueDynamic(this, &UConversationWidget::HandleCoverBlown);
 	}
 }
@@ -73,7 +79,8 @@ void UConversationWidget::NativeDestruct()
 		Conversations->OnConversationEnded.RemoveAll(this);
 		Conversations->OnNodeEntered.RemoveAll(this);
 		Conversations->OnChallengeReady.RemoveAll(this);
-		Conversations->OnAnswerGraded.RemoveAll(this);
+		Conversations->OnAnswerFeedback.RemoveAll(this);
+		Conversations->OnIntelAnswered.RemoveAll(this);
 		Conversations->OnCoverBlown.RemoveAll(this);
 	}
 	Super::NativeDestruct();
@@ -109,6 +116,11 @@ bool UConversationWidget::ShouldShowReadings() const
 {
 	const ULinguaSpySaveSubsystem* Save = GetSaveSubsystem();
 	return ActiveLanguage && ActiveLanguage->bHasReadings && (!Save || Save->GetSettings().bShowReadings);
+}
+
+bool UConversationWidget::IsTypingLevel() const
+{
+	return CurrentPresentation.Level == EScaffoldLevel::GapFill || CurrentPresentation.Level == EScaffoldLevel::Produce;
 }
 
 UButton* UConversationWidget::MakeButton(const FText& Label, const FName& Name)
@@ -149,13 +161,14 @@ void UConversationWidget::BuildDefaultLayout()
 	UVerticalBox* Column = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("Column"));
 	PanelBorder->SetContent(Column);
 
-	auto AddRow = [Column](UWidget* Widget, float TopPadding)
+	auto AddRowTo = [](UVerticalBox* Box, UWidget* Widget, float TopPadding)
 	{
-		if (UVerticalBoxSlot* RowSlot = Column->AddChildToVerticalBox(Widget))
+		if (UVerticalBoxSlot* RowSlot = Box->AddChildToVerticalBox(Widget))
 		{
 			RowSlot->SetPadding(FMargin(0.f, TopPadding, 0.f, 0.f));
 		}
 	};
+	auto AddRow = [Column, &AddRowTo](UWidget* Widget, float TopPadding) { AddRowTo(Column, Widget, TopPadding); };
 
 	// Header: speaker name + mode banner
 	UHorizontalBox* Header = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("Header"));
@@ -196,10 +209,24 @@ void UConversationWidget::BuildDefaultLayout()
 	ChallengePanel = Challenge;
 
 	IntentText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("IntentText"));
-	StyleText(IntentText, 18, TextMuted);
+	StyleText(IntentText, 18, TextMain);
 	IntentText->SetAutoWrapText(true);
 	Challenge->AddChildToVerticalBox(IntentText);
 
+	LevelText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("LevelText"));
+	StyleText(LevelText, 14, TextMuted);
+	AddRowTo(Challenge, LevelText, 2.f);
+
+	GapText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("GapText"));
+	StyleText(GapText, 26, TextMain, true);
+	GapText->SetAutoWrapText(true);
+	AddRowTo(Challenge, GapText, 10.f);
+
+	OptionBox = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("OptionBox"));
+	AddRowTo(Challenge, OptionBox, 10.f);
+
+	UVerticalBox* Answer = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("AnswerArea"));
+	AnswerArea = Answer;
 	UBorder* AnswerBorder = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("AnswerBorder"));
 	LinguaSpyStyle::StyleBorder(AnswerBorder, PanelInset, 8.f);
 	AnswerBorder->SetPadding(FMargin(10.f));
@@ -209,17 +236,16 @@ void UConversationWidget::BuildDefaultLayout()
 	AnswerRow->SetInnerSlotPadding(FVector2D(8.f, 8.f));
 	AnswerSize->SetContent(AnswerRow);
 	AnswerBorder->SetContent(AnswerSize);
-	if (UVerticalBoxSlot* AnswerSlot = Challenge->AddChildToVerticalBox(AnswerBorder))
-	{
-		AnswerSlot->SetPadding(FMargin(0.f, 10.f, 0.f, 0.f));
-	}
-
+	AddRowTo(Answer, AnswerBorder, 0.f);
 	TileBank = WidgetTree->ConstructWidget<UWrapBox>(UWrapBox::StaticClass(), TEXT("TileBank"));
 	TileBank->SetInnerSlotPadding(FVector2D(8.f, 8.f));
-	if (UVerticalBoxSlot* BankSlot = Challenge->AddChildToVerticalBox(TileBank))
-	{
-		BankSlot->SetPadding(FMargin(0.f, 12.f, 0.f, 0.f));
-	}
+	AddRowTo(Answer, TileBank, 12.f);
+	AddRowTo(Challenge, Answer, 10.f);
+
+	TypeBox = WidgetTree->ConstructWidget<UEditableTextBox>(UEditableTextBox::StaticClass(), TEXT("TypeBox"));
+	TypeBox->SetHintText(LOCTEXT("TypeHint", "Type here, then press Enter"));
+	AddRowTo(Challenge, TypeBox, 10.f);
+
 	AddRow(Challenge, 14.f);
 
 	FeedbackText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("FeedbackText"));
@@ -238,6 +264,10 @@ void UConversationWidget::BuildDefaultLayout()
 	};
 	HelperToggleButton = MakeButton(LOCTEXT("HelperToggle", "Translate"), TEXT("HelperToggleButton"));
 	AddButton(HelperToggleButton);
+	RepeatButton = MakeButton(LOCTEXT("Repeat", "Repeat"), TEXT("RepeatButton"));
+	AddButton(RepeatButton);
+	SlowButton = MakeButton(LOCTEXT("Slow", "Slower"), TEXT("SlowButton"));
+	AddButton(SlowButton);
 	ReadingToggleButton = MakeButton(LOCTEXT("ReadingToggle", "Romaji"), TEXT("ReadingToggleButton"));
 	AddButton(ReadingToggleButton);
 	LeaveButton = MakeButton(LOCTEXT("Leave", "Walk away"), TEXT("LeaveButton"));
@@ -272,6 +302,15 @@ void UConversationWidget::ApplyNativeFont(UTextBlock* Text, int32 Size) const
 	}
 }
 
+void UConversationWidget::ShowFeedback(const FText& Text, const FLinearColor& Color)
+{
+	if (FeedbackText)
+	{
+		FeedbackText->SetColorAndOpacity(FSlateColor(Color));
+		FeedbackText->SetText(Text);
+	}
+}
+
 void UConversationWidget::HandleConversationStarted(ANpcCharacter* Npc)
 {
 	const UConversationSubsystem* Conversations = GetConversationSubsystem();
@@ -280,7 +319,9 @@ void UConversationWidget::HandleConversationStarted(ANpcCharacter* Npc)
 	const bool bReview = Conversations && Conversations->GetMode() == EConversationMode::Review;
 	if (SpeakerText)
 	{
-		SpeakerText->SetText(Npc ? Npc->GetDisplayName() : bReview ? LOCTEXT("ReviewSpeaker", "Safe house drill") : FText::GetEmpty());
+		SpeakerText->SetText(Npc ? Npc->GetDisplayName()
+			: bReview && Conversations->IsDebrief() ? LOCTEXT("DebriefSpeaker", "Debrief with your handler")
+			: bReview ? LOCTEXT("ReviewSpeaker", "Safe house drill") : FText::GetEmpty());
 	}
 	SetButtonLabel(LeaveButton, bReview ? LOCTEXT("EndSession", "End session") : LOCTEXT("Leave", "Walk away"));
 	if (ReadingToggleButton)
@@ -288,6 +329,7 @@ void UConversationWidget::HandleConversationStarted(ANpcCharacter* Npc)
 		ReadingToggleButton->SetVisibility(ActiveLanguage && ActiveLanguage->bHasReadings ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
 	}
 	ApplyNativeFont(NativeLineText, 30);
+	ApplyNativeFont(GapText, 26);
 	if (SpeakerText && ActiveLanguage)
 	{
 		SpeakerText->SetColorAndOpacity(FSlateColor(ActiveLanguage->AccentColor));
@@ -301,6 +343,7 @@ void UConversationWidget::HandleConversationEnded()
 	SetVisibility(ESlateVisibility::Collapsed);
 	ClearTiles();
 	ClearChoices();
+	ClearOptions();
 	ActiveLanguage = nullptr;
 }
 
@@ -310,6 +353,7 @@ void UConversationWidget::ClearTiles()
 	BankTiles.Reset();
 	if (AnswerRow) { AnswerRow->ClearChildren(); }
 	if (TileBank) { TileBank->ClearChildren(); }
+	if (TypeBox) { TypeBox->SetText(FText::GetEmpty()); }
 	bTilesLocked = false;
 }
 
@@ -323,6 +367,28 @@ void UConversationWidget::ClearChoices()
 	}
 }
 
+void UConversationWidget::ClearOptions()
+{
+	OptionButtons.Reset();
+	if (OptionBox)
+	{
+		OptionBox->ClearChildren();
+	}
+}
+
+UWordTileWidget* UConversationWidget::MakeOptionButton(const FString& Label, bool bNativeText)
+{
+	UWordTileWidget* Button = CreateWidget<UWordTileWidget>(this, TileClass);
+	Button->SetWord(Label);
+	Button->SetChoiceStyle();
+	if (bNativeText && ActiveLanguage && !ActiveLanguage->NativeFont.IsNull())
+	{
+		Button->SetNativeFont(ActiveLanguage->NativeFont.LoadSynchronous());
+	}
+	Button->SetTileState(EWordTileState::Neutral);
+	return Button;
+}
+
 void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConversationMode Mode)
 {
 	if (NativeLineText)
@@ -331,25 +397,28 @@ void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConv
 	}
 	CurrentHelperLine = Node.HelperTranslation;
 	CurrentReadingLine = Node.NativeLineReading;
+	CurrentPresentation = FChallengePresentation();
+	bIntelNode = Node.Type == EConversationNodeType::IntelCheck;
 	RefreshHelperAndReadings();
+	RefreshAudioButtons();
 
 	if (ModeText)
 	{
 		const UConversationSubsystem* Conversations = GetConversationSubsystem();
 		ModeText->SetText(Mode == EConversationMode::Practice && Conversations
 			? FText::Format(LOCTEXT("PracticeBanner", "PRACTICE DRILL - {0} left"), Conversations->GetPracticeRemaining())
+			: Mode == EConversationMode::Review && Conversations && Conversations->IsDebrief()
+			? FText::Format(LOCTEXT("DebriefBanner", "DEBRIEF - {0} left"), Conversations->GetPracticeRemaining())
 			: Mode == EConversationMode::Review && Conversations
 			? FText::Format(LOCTEXT("ReviewBanner", "REVIEW - {0} left"), Conversations->GetPracticeRemaining())
 			: FText::GetEmpty());
 		ModeText->SetColorAndOpacity(FSlateColor(Mode == EConversationMode::Review ? LinguaSpyStyle::TextHelper : LinguaSpyStyle::Danger));
 	}
-	if (FeedbackText)
-	{
-		FeedbackText->SetText(FText::GetEmpty());
-	}
+	ShowFeedback(FText::GetEmpty(), LinguaSpyStyle::TextMain);
 
 	ClearTiles();
 	ClearChoices();
+	ClearOptions();
 	if (ChallengePanel)
 	{
 		ChallengePanel->SetVisibility(ESlateVisibility::Collapsed);
@@ -368,63 +437,142 @@ void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConv
 			{
 				continue;
 			}
-			UWordTileWidget* Button = CreateWidget<UWordTileWidget>(this, TileClass);
-			Button->SetWord(Node.Choices[i].Label.ToString());
-			Button->SetChoiceStyle();
-			Button->SetTileState(EWordTileState::Neutral);
+			UWordTileWidget* Button = MakeOptionButton(Node.Choices[i].Label.ToString(), false);
 			Button->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleChoiceClicked);
 			ChoiceButtons.Add(Button, i);
 			if (ChoiceBox) { ChoiceBox->AddChildToWrapBox(Button); }
 		}
-		if (FeedbackText)
-		{
-			// Reuse the feedback line as a prompt
-			FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::TextMuted));
-			FeedbackText->SetText(LOCTEXT("ChoosePrompt", "How do you respond?"));
-		}
+		ShowFeedback(LOCTEXT("ChoosePrompt", "How do you respond?"), LinguaSpyStyle::TextMuted);
 		SetButtons(false, false);
 		return;
 	}
 
-	// PlayerChallenge nodes get their tiles from HandleChallengeReady (broadcast right after this)
+	if (bIntelNode)
+	{
+		// Listening check: act on what the local said
+		if (ChoiceBox)
+		{
+			ChoiceBox->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		for (int32 i = 0; i < Node.Intel.Options.Num(); ++i)
+		{
+			UWordTileWidget* Button = MakeOptionButton(Node.Intel.Options[i].ToString(), false);
+			Button->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleIntelClicked);
+			OptionButtons.Add(Button, i);
+			if (ChoiceBox) { ChoiceBox->AddChildToWrapBox(Button); }
+		}
+		ShowFeedback(FText::Format(LOCTEXT("IntelPrompt", "INTEL: {0}"), Node.Intel.Question), LinguaSpyStyle::Accent);
+		SetButtons(false, false);
+		return;
+	}
+
+	// PlayerChallenge nodes get their input from HandleChallengeReady (broadcast right after this)
 	SetButtons(false, Node.Type != EConversationNodeType::PlayerChallenge);
 }
 
-void UConversationWidget::HandleChallengeReady(const FWordTileChallenge& Challenge)
+void UConversationWidget::HandleChallengeReady(const FChallengePresentation& Presentation)
 {
-	CurrentChallenge = Challenge;
+	CurrentPresentation = Presentation;
+	const FWordTileChallenge& Challenge = Presentation.Challenge;
 	ClearTiles();
 	ClearChoices();
-	if (FeedbackText)
-	{
-		FeedbackText->SetText(FText::GetEmpty());
-	}
+	ClearOptions();
+	ShowFeedback(FText::GetEmpty(), LinguaSpyStyle::TextMain);
 	if (ChallengePanel)
 	{
 		ChallengePanel->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 	}
+
+	const bool bRecognize = Presentation.Level == EScaffoldLevel::Recognize;
+	const bool bTiles = Presentation.Level == EScaffoldLevel::Assemble || Presentation.Level == EScaffoldLevel::AssemblePlus;
+	const bool bGap = Presentation.Level == EScaffoldLevel::GapFill;
+	const bool bTyping = IsTypingLevel();
+
 	if (IntentText)
 	{
-		IntentText->SetText(FText::Format(LOCTEXT("IntentFormat", "Your reply: {0}"), Challenge.IntentPrompt));
+		IntentText->SetText(bRecognize
+			? FText::Format(LOCTEXT("IntentRecognize", "Which would you say? {0}"), Challenge.IntentPrompt)
+			: FText::Format(LOCTEXT("IntentFormat", "Your reply: {0}"), Challenge.IntentPrompt));
+	}
+	if (LevelText)
+	{
+		FText Level;
+		switch (Presentation.Level)
+		{
+		case EScaffoldLevel::Recognize:    Level = LOCTEXT("LevelRecognize", "Handler support: pick the right sentence"); break;
+		case EScaffoldLevel::Assemble:     Level = LOCTEXT("LevelAssemble", "Handler support: just the words you need"); break;
+		case EScaffoldLevel::AssemblePlus: Level = LOCTEXT("LevelAssemblePlus", "Watch out: some words don't belong"); break;
+		case EScaffoldLevel::GapFill:      Level = LOCTEXT("LevelGap", "From memory: type the missing word(s)"); break;
+		case EScaffoldLevel::Produce:      Level = LOCTEXT("LevelProduce", "From memory: type the whole sentence"); break;
+		}
+		LevelText->SetText(Level);
+	}
+	if (GapText)
+	{
+		GapText->SetText(FText::FromString(Presentation.GapDisplay));
+		GapText->SetVisibility(bGap ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
+	}
+	if (AnswerArea)
+	{
+		AnswerArea->SetVisibility(bTiles ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+	}
+	if (TypeBox)
+	{
+		TypeBox->SetVisibility(bTyping ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+		TypeBox->SetIsReadOnly(false);
+		TypeBox->SetHintText(bGap
+			? FText::Format(LOCTEXT("GapHint", "Type the {0} missing {0}|plural(one=word,other=words), then press Enter"), Presentation.GapCount)
+			: LOCTEXT("ProduceHint", "Type your reply, then press Enter"));
+		if (bTyping)
+		{
+			TypeBox->SetKeyboardFocus();
+		}
 	}
 
-	TArray<FWordTile> Tiles = Challenge.Tiles;
-	for (int32 i = Tiles.Num() - 1; i > 0; --i)
+	if (bRecognize)
 	{
-		Tiles.Swap(i, FMath::RandRange(0, i));
-	}
-	const bool bReadings = ShouldShowReadings();
-	for (const FWordTile& WordTile : Tiles)
-	{
-		UWordTileWidget* Tile = CreateWidget<UWordTileWidget>(this, TileClass);
-		Tile->SetWord(WordTile.Text);
-		Tile->SetReading(bReadings ? WordTile.Reading : FString());
-		Tile->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleTileClicked);
-		BankTiles.Add(Tile);
-		if (TileBank) { TileBank->AddChildToWrapBox(Tile); }
+		for (int32 i = 0; i < Presentation.RecognitionOptions.Num(); ++i)
+		{
+			UWordTileWidget* Button = MakeOptionButton(Presentation.RecognitionOptions[i], true);
+			Button->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleOptionClicked);
+			OptionButtons.Add(Button, i);
+			if (OptionBox)
+			{
+				if (UVerticalBoxSlot* OptionSlot = OptionBox->AddChildToVerticalBox(Button))
+				{
+					OptionSlot->SetPadding(FMargin(0.f, 0.f, 0.f, 8.f));
+					OptionSlot->SetHorizontalAlignment(HAlign_Left);
+				}
+			}
+		}
 	}
 
-	SetButtons(true, false);
+	if (bTiles)
+	{
+		TArray<FWordTile> Tiles = Presentation.Tiles;
+		for (int32 i = Tiles.Num() - 1; i > 0; --i)
+		{
+			Tiles.Swap(i, FMath::RandRange(0, i));
+		}
+		const bool bReadings = ShouldShowReadings();
+		UFont* NativeFont = ActiveLanguage && !ActiveLanguage->NativeFont.IsNull() ? ActiveLanguage->NativeFont.LoadSynchronous() : nullptr;
+		for (const FWordTile& WordTile : Tiles)
+		{
+			UWordTileWidget* Tile = CreateWidget<UWordTileWidget>(this, TileClass);
+			Tile->SetWord(WordTile.Text);
+			Tile->SetNativeFont(NativeFont);
+			Tile->SetReading(bReadings ? WordTile.Reading : FString());
+			Tile->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleTileClicked);
+			BankTiles.Add(Tile);
+			if (TileBank) { TileBank->AddChildToWrapBox(Tile); }
+		}
+	}
+
+	SetButtons(!bRecognize, false);
+	if (ClearButton)
+	{
+		ClearButton->SetVisibility(bTiles ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
 }
 
 void UConversationWidget::HandleChoiceClicked(UWordTileWidget* ChoiceButton)
@@ -436,6 +584,69 @@ void UConversationWidget::HandleChoiceClicked(UWordTileWidget* ChoiceButton)
 		{
 			Conversations->SelectChoice(*Index);
 		}
+	}
+}
+
+void UConversationWidget::HandleOptionClicked(UWordTileWidget* OptionButton)
+{
+	const int32* Index = OptionButtons.Find(OptionButton);
+	UConversationSubsystem* Conversations = GetConversationSubsystem();
+	if (!Index || !Conversations || bTilesLocked)
+	{
+		return;
+	}
+	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+	const FAnswerFeedback Feedback = Conversations->SubmitRecognition(*Index);
+	if (!Feedback.Grade.bPassed)
+	{
+		OptionButton->SetTileState(EWordTileState::Wrong);
+		OptionButton->SetLocked(true);
+		OptionButton->PlayShake();
+	}
+	else
+	{
+		OptionButton->SetTileState(EWordTileState::Correct);
+	}
+}
+
+void UConversationWidget::HandleIntelClicked(UWordTileWidget* OptionButton)
+{
+	const int32* Index = OptionButtons.Find(OptionButton);
+	if (UConversationSubsystem* Conversations = Index ? GetConversationSubsystem() : nullptr)
+	{
+		LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
+		if (!Conversations->SubmitIntel(*Index))
+		{
+			OptionButton->SetTileState(EWordTileState::Wrong);
+			OptionButton->SetLocked(true);
+			OptionButton->PlayShake();
+		}
+		else
+		{
+			OptionButton->SetTileState(EWordTileState::Correct);
+		}
+	}
+}
+
+void UConversationWidget::HandleIntelAnswered(bool bCorrect, int32 ChoiceIndex)
+{
+	LinguaSpyAudio::PlayUI(this, bCorrect ? ESpyUISound::Pass : ESpyUISound::Fail);
+	if (bCorrect)
+	{
+		for (const TPair<TObjectPtr<UWordTileWidget>, int32>& Pair : OptionButtons)
+		{
+			Pair.Key->SetLocked(true);
+		}
+		ShowFeedback(LOCTEXT("IntelRight", "Noted. That's the intel you needed."), LinguaSpyStyle::TileCorrect);
+		SetButtons(false, true);
+	}
+	else
+	{
+		const UConversationSubsystem* Conversations = GetConversationSubsystem();
+		ShowFeedback(Conversations && Conversations->HasLineAudio()
+			? LOCTEXT("IntelWrongAudio", "That's not what they said. Listen again (Repeat / Slower) and try another answer.")
+			: LOCTEXT("IntelWrong", "That's not what they said. Read the line again and try another answer."),
+			LinguaSpyStyle::TileWrong);
 	}
 }
 
@@ -460,6 +671,7 @@ void UConversationWidget::HandleTileClicked(UWordTileWidget* Tile)
 		if (AnswerRow) { AnswerRow->AddChildToWrapBox(Tile); }
 	}
 	Tile->bInAnswer = !Tile->bInAnswer;
+	Tile->SetTileState(EWordTileState::Neutral);
 	Tile->PlayPop();
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::TilePlace);
 }
@@ -476,37 +688,60 @@ void UConversationWidget::HandleClear()
 	}
 }
 
+void UConversationWidget::HandleTypeCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+{
+	if (CommitMethod == ETextCommit::OnEnter)
+	{
+		HandleSubmit();
+	}
+}
+
 void UConversationWidget::HandleSubmit()
 {
-	if (bTilesLocked)
+	UConversationSubsystem* Conversations = GetConversationSubsystem();
+	if (bTilesLocked || !Conversations)
 	{
 		return;
 	}
-	if (AnswerTiles.IsEmpty())
+
+	if (IsTypingLevel())
 	{
-		if (FeedbackText)
+		const TArray<FString> Words = USentenceGrader::TokenizeTyped(TypeBox ? TypeBox->GetText().ToString() : FString());
+		if (Words.IsEmpty())
 		{
-			FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::TextMuted));
-			FeedbackText->SetText(LOCTEXT("EmptyAnswer", "Build a sentence from the tiles first."));
+			ShowFeedback(LOCTEXT("EmptyTyped", "Type your answer first."), LinguaSpyStyle::TextMuted);
+			return;
+		}
+		if (CurrentPresentation.Level == EScaffoldLevel::GapFill)
+		{
+			Conversations->SubmitGapWords(Words);
+		}
+		else
+		{
+			Conversations->SubmitAnswer(Words);
 		}
 		return;
 	}
 
+	if (AnswerTiles.IsEmpty())
+	{
+		ShowFeedback(LOCTEXT("EmptyAnswer", "Build a sentence from the tiles first."), LinguaSpyStyle::TextMuted);
+		return;
+	}
 	TArray<FString> Tokens;
 	for (const UWordTileWidget* Tile : AnswerTiles)
 	{
 		Tokens.Add(Tile->GetWord());
 	}
-	if (UConversationSubsystem* Conversations = GetConversationSubsystem())
-	{
-		Conversations->SubmitAnswer(Tokens);
-	}
+	Conversations->SubmitAnswer(Tokens);
 }
 
-void UConversationWidget::HandleAnswerGraded(const FGradeResult& Result, const FString& ModelAnswer)
+void UConversationWidget::HandleAnswerFeedback(const FAnswerFeedback& Feedback)
 {
+	const FGradeResult& Result = Feedback.Grade;
 	LinguaSpyAudio::PlayUI(this, Result.bPassed ? ESpyUISound::Pass : ESpyUISound::Fail);
-	bTilesLocked = true;
+
+	// Colour the placed tiles (prompt: right ones green, wrong ones red; the player fixes them and tries again)
 	for (int32 i = 0; i < AnswerTiles.Num(); ++i)
 	{
 		const bool bCorrect = Result.TileCorrect.IsValidIndex(i) && Result.TileCorrect[i];
@@ -517,26 +752,42 @@ void UConversationWidget::HandleAnswerGraded(const FGradeResult& Result, const F
 		}
 	}
 
-	if (FeedbackText)
+	if (!Feedback.bFinal)
 	{
-		const UConversationSubsystem* Conversations = GetConversationSubsystem();
-		const bool bPractice = Conversations
-			&& (Conversations->GetMode() == EConversationMode::Practice || Conversations->GetMode() == EConversationMode::Review);
-		if (Result.bPassed)
-		{
-			FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::TileCorrect));
-			FeedbackText->SetText(bPractice
-				? LOCTEXT("PracticePass", "Perfect! That one's locked in.")
-				: LOCTEXT("Pass", "Perfect! Your cover holds."));
-		}
-		else
-		{
-			FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::TileWrong));
-			FeedbackText->SetText(FText::Format(bPractice
-				? LOCTEXT("PracticeFail", "Not yet - it will come back later in the drill. Correct: \"{0}\"")
-				: LOCTEXT("Fail", "The local narrows their eyes... Correct: \"{0}\""),
-				FText::FromString(ModelAnswer)));
-		}
+		// Feedback ladder step 1: a prompt, not the answer
+		ShowFeedback(FText::Format(LOCTEXT("Prompt", "Handler: \"{0}\" Try again."), Feedback.Hint), LinguaSpyStyle::TextHelper);
+		bTilesLocked = false;
+		return;
+	}
+
+	bTilesLocked = true;
+	if (TypeBox)
+	{
+		TypeBox->SetIsReadOnly(true);
+	}
+	for (const TPair<TObjectPtr<UWordTileWidget>, int32>& Pair : OptionButtons)
+	{
+		Pair.Key->SetLocked(true);
+	}
+
+	const UConversationSubsystem* Conversations = GetConversationSubsystem();
+	const bool bPractice = Conversations
+		&& (Conversations->GetMode() == EConversationMode::Practice || Conversations->GetMode() == EConversationMode::Review);
+	if (Result.bPassed)
+	{
+		ShowFeedback(Feedback.bAssisted
+			? FText::Format(LOCTEXT("AssistedPass", "Got it: \"{0}\". Next time, try it without help."), FText::FromString(Feedback.ModelAnswer))
+			: bPractice ? LOCTEXT("PracticePass", "Perfect! That one's locked in.")
+			: LOCTEXT("Pass", "Perfect! Your cover holds."),
+			LinguaSpyStyle::TileCorrect);
+	}
+	else
+	{
+		// Feedback ladder step 2: the recast (model answer, spoken if recorded)
+		ShowFeedback(FText::Format(bPractice
+			? LOCTEXT("PracticeFail", "Here's how a local says it: \"{0}\". It will come back later in the drill.")
+			: LOCTEXT("Fail", "The local narrows their eyes... A local would say: \"{0}\""),
+			FText::FromString(Feedback.ModelAnswer)), LinguaSpyStyle::TileWrong);
 	}
 
 	SetButtons(false, true);
@@ -545,15 +796,13 @@ void UConversationWidget::HandleAnswerGraded(const FGradeResult& Result, const F
 void UConversationWidget::HandleCoverBlown()
 {
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::CoverBlown);
+	bTilesLocked = true;
 	if (ModeText)
 	{
 		ModeText->SetText(LOCTEXT("CoverBlownBanner", "COVER BLOWN"));
 	}
-	if (FeedbackText)
-	{
-		FeedbackText->SetColorAndOpacity(FSlateColor(LinguaSpyStyle::Danger));
-		FeedbackText->SetText(LOCTEXT("CoverBlown", "Your cover is blown! Your handler pulls you out - time to drill the phrases that gave you away."));
-	}
+	ShowFeedback(LOCTEXT("CoverBlown", "Your cover is blown! Your handler pulls you out - time to drill the phrases that gave you away."),
+		LinguaSpyStyle::Danger);
 	SetButtons(false, true);
 }
 
@@ -562,7 +811,10 @@ void UConversationWidget::HandleHelperToggle()
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::Click);
 	if (UConversationSubsystem* Conversations = GetConversationSubsystem())
 	{
-		Conversations->RevealTranslation();
+		if (!Conversations->RevealTranslation() && Conversations->GetPeeksLeft() == 0)
+		{
+			ShowFeedback(LOCTEXT("RadioSilence", "Radio silence: your handler can't help any more in this conversation."), LinguaSpyStyle::TextMuted);
+		}
 	}
 	RefreshHelperAndReadings();
 }
@@ -580,27 +832,55 @@ void UConversationWidget::HandleReadingToggle()
 	const bool bReadings = ShouldShowReadings();
 	for (UWordTileWidget* Tile : BankTiles)
 	{
-		Tile->SetReading(bReadings ? CurrentChallenge.FindReading(Tile->GetWord()) : FString());
+		Tile->SetReading(bReadings ? CurrentPresentation.Challenge.FindReading(Tile->GetWord()) : FString());
 	}
 	for (UWordTileWidget* Tile : AnswerTiles)
 	{
-		Tile->SetReading(bReadings ? CurrentChallenge.FindReading(Tile->GetWord()) : FString());
+		Tile->SetReading(bReadings ? CurrentPresentation.Challenge.FindReading(Tile->GetWord()) : FString());
 	}
+}
+
+void UConversationWidget::HandleRepeat()
+{
+	if (UConversationSubsystem* Conversations = GetConversationSubsystem())
+	{
+		Conversations->RepeatLine(false);
+	}
+}
+
+void UConversationWidget::HandleSlow()
+{
+	if (UConversationSubsystem* Conversations = GetConversationSubsystem())
+	{
+		Conversations->RepeatLine(true);
+	}
+}
+
+void UConversationWidget::RefreshAudioButtons()
+{
+	const UConversationSubsystem* Conversations = GetConversationSubsystem();
+	const ESlateVisibility Vis = Conversations && Conversations->HasLineAudio() ? ESlateVisibility::Visible : ESlateVisibility::Collapsed;
+	if (RepeatButton) { RepeatButton->SetVisibility(Vis); }
+	if (SlowButton) { SlowButton->SetVisibility(Vis); }
 }
 
 void UConversationWidget::RefreshHelperAndReadings()
 {
 	const bool bRevealed = IsHelperEnabled();
+	const UConversationSubsystem* Conversations = GetConversationSubsystem();
+	const int32 PeeksLeft = Conversations ? Conversations->GetPeeksLeft() : -1;
 	if (HelperText)
 	{
 		HelperText->SetText(bRevealed
-			? FText::Format(LOCTEXT("HelperFormat", "Helper: \"{0}\""), CurrentHelperLine)
+			? FText::Format(LOCTEXT("HelperFormat", "Handler: \"{0}\""), CurrentHelperLine)
+			: PeeksLeft == 0 ? LOCTEXT("HelperSilent", "(Radio silence - you're on your own here.)")
+			: PeeksLeft > 0 ? FText::Format(LOCTEXT("HelperLimited", "(Radio silence: {0} {0}|plural(one=translation,other=translations) left in this conversation.)"), PeeksLeft)
 			: LOCTEXT("HelperHidden", "(Stuck? Tap Translate and your handler will whisper it - it lowers your fluency grade.)"));
 		HelperText->SetColorAndOpacity(FSlateColor(bRevealed ? LinguaSpyStyle::TextHelper : LinguaSpyStyle::TextMuted));
 	}
 	if (HelperToggleButton)
 	{
-		HelperToggleButton->SetVisibility(bRevealed || CurrentHelperLine.IsEmpty() ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
+		HelperToggleButton->SetVisibility(bRevealed || CurrentHelperLine.IsEmpty() || PeeksLeft == 0 ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
 	}
 	if (ReadingLineText)
 	{

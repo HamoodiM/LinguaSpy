@@ -29,6 +29,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Menu", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> SettingsButton;
 
+	/** Pilot mode: the study's tests; otherwise "Check my level" (placement). */
+	UPROPERTY(BlueprintReadOnly, Category="Menu", meta=(BindWidgetOptional))
+	TObjectPtr<UButton> AssessmentButton;
+
 	UPROPERTY(BlueprintReadOnly, Category="Menu", meta=(BindWidgetOptional))
 	TObjectPtr<UButton> ResetButton;
 
@@ -57,6 +61,12 @@ private:
 
 	UFUNCTION()
 	void HandleSettings();
+
+	UFUNCTION()
+	void HandleAssessment();
+
+	bool IsPilot() const;
+	bool bPilotPromptShown = false;
 
 	/** An overlay closed: progress may have changed (review done), so rebuild the cards. */
 	UFUNCTION()

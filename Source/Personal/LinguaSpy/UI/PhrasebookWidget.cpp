@@ -1,6 +1,7 @@
 // LinguaSpy - phrasebook overlay: phrases the player has learned in a city
 
 #include "PhrasebookWidget.h"
+#include "LinguaSpySaveSubsystem.h"
 #include "LanguagePackAsset.h"
 #include "LinguaSpyStyle.h"
 #include "LinguaSpyAudio.h"
@@ -61,6 +62,25 @@ void UPhrasebookWidget::SetPack(ULanguagePackAsset* InPack)
 	RebuildList();
 }
 
+const FName UPhrasebookWidget::FieldNotesFilter(TEXT("__FieldNotes"));
+
+TArray<FGrammarNote> UPhrasebookWidget::GetSeenNotes() const
+{
+	TArray<FGrammarNote> Out;
+	const ULinguaSpySaveSubsystem* Save = GetGameInstance() ? GetGameInstance()->GetSubsystem<ULinguaSpySaveSubsystem>() : nullptr;
+	if (Pack && Save && Save->GetSave())
+	{
+		for (const FGrammarNote& Note : Pack->GrammarNotes)
+		{
+			if (Save->GetSave()->SeenFieldNotes.Contains(Note.NoteId))
+			{
+				Out.Add(Note);
+			}
+		}
+	}
+	return Out;
+}
+
 void UPhrasebookWidget::RebuildFilters()
 {
 	FilterButtons.Reset();
@@ -75,17 +95,23 @@ void UPhrasebookWidget::RebuildFilters()
 	{
 		Skills.AddUnique(Item.State.SkillTag);
 	}
-	if (Skills.Num() < 2)
+	const bool bHasNotes = !GetSeenNotes().IsEmpty();
+	if (Skills.Num() < 2 && !bHasNotes)
 	{
 		return; // nothing to filter
 	}
 	Skills.Sort([](FName A, FName B) { return A.LexicalLess(B); });
 	Skills.Insert(NAME_None, 0);
+	if (bHasNotes)
+	{
+		Skills.Add(FieldNotesFilter);
+	}
 
 	for (FName Skill : Skills)
 	{
 		UWordTileWidget* Chip = CreateWidget<UWordTileWidget>(this, UWordTileWidget::StaticClass());
-		Chip->SetWord(Skill.IsNone() ? LOCTEXT("All", "All").ToString() : Skill.ToString());
+		Chip->SetWord(Skill.IsNone() ? LOCTEXT("All", "All").ToString()
+			: Skill == FieldNotesFilter ? LOCTEXT("FieldNotes", "Field notes").ToString() : Skill.ToString());
 		Chip->SetChoiceStyle();
 		Chip->SetTileState(Skill == ActiveFilter ? EWordTileState::Correct : EWordTileState::Neutral);
 		Chip->OnTileClicked.AddDynamic(this, &UPhrasebookWidget::HandleFilterClicked);
@@ -112,6 +138,21 @@ void UPhrasebookWidget::RebuildList()
 		return;
 	}
 	List->ClearChildren();
+
+	if (ActiveFilter == FieldNotesFilter)
+	{
+		for (const FGrammarNote& Note : GetSeenNotes())
+		{
+			UVerticalBox* Entry = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass());
+			AddRow(Entry, MakeText(Note.Title, 20, LinguaSpyStyle::TextHelper, true), 0.f);
+			AddRow(Entry, MakeText(Note.Body, 16, LinguaSpyStyle::TextMain), 4.f);
+			if (UScrollBoxSlot* EntrySlot = Cast<UScrollBoxSlot>(List->AddChild(Entry)))
+			{
+				EntrySlot->SetPadding(FMargin(0.f, 0.f, 12.f, 16.f));
+			}
+		}
+		return;
+	}
 
 	int32 Shown = 0;
 	int32 Due = 0;

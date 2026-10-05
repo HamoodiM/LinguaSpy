@@ -9,7 +9,10 @@
 class USlider;
 class ULinguaSpySaveSubsystem;
 
-/** Master / Music / Ambience / UI sliders (applied live) and the translation / readings toggles. Saved on close. */
+/**
+ *  Master / Music / Ambience / Voice / UI sliders (applied live), handler support mode (current city, or every city from
+ *  the main menu), readings toggle, and the local learning log toggle. Saved on close.
+ */
 UCLASS()
 class USettingsWidget : public UOverlayPanelWidget
 {
@@ -35,7 +38,17 @@ private:
 	void HandleSliderChanged(float Value);
 
 	UFUNCTION()
-	void HandleTranslationToggle();
+	void HandleHandlerToggle();
+
+	UFUNCTION()
+	void HandleTelemetryToggle();
+
+	UFUNCTION()
+	void HandleOpenLogs();
+
+	/** City whose handler mode is shown (None = from the menu: changes apply to every city). */
+	FName GetHandlerCity() const;
+	TArray<FName> GetAllCityIds() const;
 
 	UFUNCTION()
 	void HandleReadingsToggle();
@@ -51,6 +64,15 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<USlider> UISlider;
+
+	UPROPERTY()
+	TObjectPtr<USlider> VoiceSlider;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> TelemetryLabel;
+
+	UPROPERTY()
+	TObjectPtr<UTextBlock> HandlerHint;
 
 	UPROPERTY()
 	TArray<TObjectPtr<UTextBlock>> ValueTexts;
