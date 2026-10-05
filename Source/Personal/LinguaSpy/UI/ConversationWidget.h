@@ -87,6 +87,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UEditableTextBox> TypeBox;
 
+	/** Accent keys under the typing box (from ULanguagePackAsset::SpecialCharacters). */
+	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
+	TObjectPtr<UWrapBox> AccentBar;
+
 	UPROPERTY(BlueprintReadOnly, Category="Conversation", meta=(BindWidgetOptional))
 	TObjectPtr<UTextBlock> FeedbackText;
 
@@ -184,6 +188,11 @@ private:
 
 	UFUNCTION()
 	void HandleTypeCommitted(const FText& Text, ETextCommit::Type CommitMethod);
+
+	UFUNCTION()
+	void HandleAccentKey(UWordTileWidget* Key);
+
+	void RebuildAccentBar(bool bVisible);
 
 	UFUNCTION()
 	void HandleContinue();

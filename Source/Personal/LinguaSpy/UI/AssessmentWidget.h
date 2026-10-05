@@ -79,6 +79,9 @@ private:
 	void HandleOpenLogs();
 
 	UFUNCTION()
+	void HandleAccentKey(UWordTileWidget* Key);
+
+	UFUNCTION()
 	void ShowHomeFromButton() { ShowHome(); }
 
 	UPROPERTY()

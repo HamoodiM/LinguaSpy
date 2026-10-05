@@ -446,9 +446,19 @@ FAnswerFeedback UConversationSubsystem::SubmitRecognition(int32 OptionIndex)
 	return ApplyGrade(Result, 0);
 }
 
-FAnswerFeedback UConversationSubsystem::ApplyGrade(const FGradeResult& Result, int32 SubmittedTokens)
+FAnswerFeedback UConversationSubsystem::ApplyGrade(const FGradeResult& InResult, int32 SubmittedTokens)
 {
 	const FWordTileChallenge& Challenge = *GetActiveChallenge();
+
+	// Typed answers that are right apart from accents: the first try gets the accent hint; on the last try it passes
+	// as assisted (the learner knows the words; the keyboard is the problem, not the French)
+	FGradeResult Result = InResult;
+	const bool bTyped = Presentation.Level == EScaffoldLevel::GapFill || Presentation.Level == EScaffoldLevel::Produce;
+	const bool bAccentPass = bTyped && Result.bAccentOnly && Presentation.Attempt >= UScaffoldPolicy::MaxAttempts;
+	if (bAccentPass)
+	{
+		Result.bPassed = true;
+	}
 	const FString KeyString = GetCurrentKey().ToString();
 	UCoverComponent* Cover = Mode == EConversationMode::Conversation ? ActiveCover.Get() : nullptr;
 
@@ -482,7 +492,11 @@ FAnswerFeedback UConversationSubsystem::ApplyGrade(const FGradeResult& Result, i
 	const bool bAssisted = Result.bPassed && (UScaffoldPolicy::IsAssistedPass(Presentation.Level, Presentation.Attempt) || IsPeeked()
 		|| Mode == EConversationMode::Practice);
 	Feedback.bFinal = true;
-	Feedback.bAssisted = bAssisted;
+	Feedback.bAssisted = bAssisted || bAccentPass;
+	if (bAccentPass)
+	{
+		Feedback.Hint = NSLOCTEXT("LinguaSpy", "AccentPass", "Accepted - but watch the accents.");
+	}
 	Feedback.ModelAnswer = ModelAnswerFor(Challenge);
 	bLastAnswerPassed = Result.bPassed;
 	bAwaitingContinueAfterGrade = true;
@@ -491,7 +505,7 @@ FAnswerFeedback UConversationSubsystem::ApplyGrade(const FGradeResult& Result, i
 		++SessionErrors.FindOrAdd(KeyString);
 	}
 
-	RecordFinal(Challenge, Result.bPassed, bAssisted, Result.bAccentOnly);
+	RecordFinal(Challenge, Result.bPassed, bAssisted || bAccentPass, Result.bAccentOnly);
 
 	OnAnswerFeedback.Broadcast(Feedback);
 	if (!Result.bPassed)

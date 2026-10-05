@@ -122,3 +122,48 @@ Built with the editor closed. It compiled first try, and all **19** `LinguaSpy.*
 - Debrief passes don't promote SRS boxes. A debrief is minutes after the mission, so it's consolidation, not spaced retrieval.
 - Field notes queue one card at a time (four had stacked at once).
 - Review/debrief helper text no longer threatens the grade.
+
+## 2026-10-05: Stages 4, 8, 9 (cleanup, analysis, pilot build) + Madrid "El Palacio"
+**Stage 8: `Tools/Analysis/pilot_report.py`**
+- Uses only the standard library: pandas and matplotlib aren't installed, and pilot laptops shouldn't need them.
+- Reports a paired t-test (own incomplete-beta implementation), exact Wilcoxon, Cohen's d_z with an approximate CI, accuracy by scaffold level and skill, reliance by session thirds, intel and briefing accuracy, cover-blown hotspots and SUS. Charts are SVG.
+- `--selftest` checks the statistics against known values and writes clearly marked synthetic output under `Saved/PilotReport_SELFTEST`. Real runs refuse logs containing `SYN-*` participants.
+
+**Stage 4: template cleanup**
+- The asset-registry walk from `/Game/LinguaSpy` found 7 template dependencies, all used by BP_SpyController: the click-to-move input and the cursor FX chain.
+  - Moved them to `/Game/LinguaSpy/Input` and `/Game/LinguaSpy/FX/Cursor`. No redirectors were left.
+- Deleted `/Game/TopDown`, `Variant_Strategy`, `Variant_TwinStick`, `LevelPrototyping` and `Cursor`: 353 files, about 9 MB.
+  - The template maps' 10 external-actor files wouldn't delete in-editor (their C++ classes were gone), so they were removed on disk.
+- Editor start map and content-browser path now point at LinguaSpy.
+- **Not verified with real input:** click-to-move after the move. The PIE driver teleports. It's in EDITOR_TODO.
+
+**Stage 9: packaged build**
+- `DefaultGame.ini`: project name LinguaSpy, version 0.5.0, Shipping/pak/IoStore. `DirectoriesToAlwaysCook` covers `/Game/LinguaSpy/Data` (test forms are only found through the asset registry) and `/Game/LinguaSpy/Audio/Voice`. `MapsToCook` lists all 5 maps.
+- First Shipping build: OK, 704 MB, `Saved/Packaged/Windows`. The first run compiles the engine monolithically and the SM6 global shaders, so it took about an hour.
+- Pilot mode also turns on with a `pilot.ini` next to the packaged game, because Shipping keeps `Saved/` under `%LOCALAPPDATA%`.
+- `Tools/Packaging/package.sh` packages and adds `Start LinguaSpy (Pilot).bat` (runs `-PilotMode`) and `CREDITS.md`.
+- Pilot kit: `docs/pilot_kit/` (facilitator script, laptop setup, consent templates, survey + CSV format, observer sheet). Portfolio `README.md`.
+
+**Accent keys and leniency** (found while writing the observer sheet: English keyboards can't easily type é/à/ç)
+- `ULanguagePackAsset::SpecialCharacters` drives on-screen keys under the typing box, in conversations and gap-fill test items.
+- A typed answer that's right apart from accents gets the accent hint first. On the last attempt it passes as assisted ("Accepted - but watch the accents").
+- Typed test gap words ignore accents, since that would measure the keyboard as much as the French. Test updated; 19/19 pass.
+
+**Madrid "El Palacio"** (`madrid_palacio.py`, A2; `cities.MADRID` gets Rosa, Álvaro, PalaceGate, Folder and gated options for Javier/Carmen/Diego/Álvaro)
+- Map rebuilt; it had only ever been script-built.
+- Scripted PIE on a temporary profile:
+  - TapaSecreta: S, plus debrief;
+  - El Palacio briefing → Javier (past) → Rosa (intel sets `KnowsOpening`) → gate;
+  - Álvaro, blown deliberately → drill → `Suspicious` → Carmen (Help) → Álvaro retry (`AskedCarmen`) → folder → Diego (future);
+  - mission complete with grade B and 3 A2 can-dos earned. All Spanish assets validate.
+- The taquilla is a retinted Paris ticket booth for now (Blender prop later).
+- **No Spanish voices yet.** Licenses are checked:
+  - es_ES-davefx (CC0) and es_ES-sharvard (CC-BY 3.0) are OK;
+  - it_IT-paola (CC0) and it_IT-serena (CC-BY 4.0) are OK;
+  - Japanese: the only Piper voice, hi_fi_captain, is CC BY-NC-SA, so it's excluded by the plan's rule and Tokyo stays text-only.
+
+**Remaining Phase 5**
+- Tokyo "Tower Line" and Rome "Operazione Colosseo" (drafts in `docs/Phase5_Scripts.md`).
+- Spanish/Italian voices.
+- Mission-1 retrofit for Madrid/Tokyo/Rome.
+- Mission replay, Blender props, per-city music, Noto Sans JP.

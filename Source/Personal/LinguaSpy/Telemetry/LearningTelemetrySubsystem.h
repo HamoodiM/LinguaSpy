@@ -27,7 +27,7 @@ struct PERSONAL_API FTelemetryEvent
 /**
  *  Appends one JSON object per line to Saved/Telemetry/<participant or "anon">_<session>.jsonl.
  *  Off unless the player enables it in Settings or the game runs in Pilot mode (-PilotMode or Saved/pilot.ini),
- *  which also turns it on. Only anonymous gameplay data: no names, no free text typed by the player except
+ *  which also turns it on (a pilot.ini next to the packaged game works too). Only anonymous gameplay data: no names, no free text typed by the player except
  *  answers to language challenges. Event list: docs/Pilot_Study_Protocol.md.
  */
 UCLASS()

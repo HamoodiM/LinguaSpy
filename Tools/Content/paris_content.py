@@ -168,6 +168,6 @@ paris = lc.language_pack("/Game/LinguaSpy/Data/French", "DA_Lang_French_Paris", 
                          "Croissants, cafés and coded whispers.", "8FB8DE", 0,
                          city_map="/Game/LinguaSpy/Maps/Lvl_Paris",
                          missions=[first_contact], conversations=[cafe, kiosk, kiosk_retry],
-                         grammar_notes=FRENCH_NOTES, allow_typing=True)
+                         grammar_notes=FRENCH_NOTES, allow_typing=True, special_chars="éèêàâçùûîôœ")
 
 print("Paris content built:", [a.get_name() for a in (cafe, kiosk, kiosk_retry, first_contact, paris)])

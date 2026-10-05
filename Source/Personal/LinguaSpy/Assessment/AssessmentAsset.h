@@ -84,7 +84,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Assessment", meta=(TitleProperty="ItemId"))
 	TArray<FAssessmentItem> Items;
 
-	/** Pure scoring. Choice items use ChoiceIndex; GapFill uses Tokens as the typed gap words; Assemble uses Tokens. */
+	/**
+	 *  Pure scoring. Choice items use ChoiceIndex; GapFill uses Tokens as the typed gap words (accents not scored);
+	 *  Assemble uses Tokens.
+	 */
 	static bool ScoreItem(const FAssessmentItem& Item, int32 ChoiceIndex, const TArray<FString>& Tokens);
 
 	UFUNCTION(BlueprintCallable, Category="Assessment")

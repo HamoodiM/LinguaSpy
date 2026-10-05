@@ -246,6 +246,10 @@ void UConversationWidget::BuildDefaultLayout()
 	TypeBox->SetHintText(LOCTEXT("TypeHint", "Type here, then press Enter"));
 	AddRowTo(Challenge, TypeBox, 10.f);
 
+	AccentBar = WidgetTree->ConstructWidget<UWrapBox>(UWrapBox::StaticClass(), TEXT("AccentBar"));
+	AccentBar->SetInnerSlotPadding(FVector2D(6.f, 6.f));
+	AddRowTo(Challenge, AccentBar, 6.f);
+
 	AddRow(Challenge, 14.f);
 
 	FeedbackText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("FeedbackText"));
@@ -419,6 +423,7 @@ void UConversationWidget::HandleNodeEntered(const FConversationNode& Node, EConv
 	ClearTiles();
 	ClearChoices();
 	ClearOptions();
+	RebuildAccentBar(false);
 	if (ChallengePanel)
 	{
 		ChallengePanel->SetVisibility(ESlateVisibility::Collapsed);
@@ -528,6 +533,7 @@ void UConversationWidget::HandleChallengeReady(const FChallengePresentation& Pre
 			TypeBox->SetKeyboardFocus();
 		}
 	}
+	RebuildAccentBar(bTyping);
 
 	if (bRecognize)
 	{
@@ -688,6 +694,43 @@ void UConversationWidget::HandleClear()
 	}
 }
 
+void UConversationWidget::RebuildAccentBar(bool bVisible)
+{
+	if (!AccentBar)
+	{
+		return;
+	}
+	AccentBar->ClearChildren();
+	const FString Keys = ActiveLanguage ? ActiveLanguage->SpecialCharacters : FString();
+	AccentBar->SetVisibility(bVisible && !Keys.IsEmpty() ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+	if (!bVisible)
+	{
+		return;
+	}
+	for (const TCHAR C : Keys)
+	{
+		if (FChar::IsWhitespace(C))
+		{
+			continue;
+		}
+		UWordTileWidget* Key = CreateWidget<UWordTileWidget>(this, TileClass);
+		Key->SetWord(FString::Chr(C));
+		Key->SetChoiceStyle();
+		Key->OnTileClicked.AddDynamic(this, &UConversationWidget::HandleAccentKey);
+		AccentBar->AddChildToWrapBox(Key);
+	}
+}
+
+void UConversationWidget::HandleAccentKey(UWordTileWidget* Key)
+{
+	if (TypeBox && Key && !bTilesLocked)
+	{
+		TypeBox->SetText(FText::FromString(TypeBox->GetText().ToString() + Key->GetWord()));
+		TypeBox->SetKeyboardFocus();
+		LinguaSpyAudio::PlayUI(this, ESpyUISound::TilePlace);
+	}
+}
+
 void UConversationWidget::HandleTypeCommitted(const FText& Text, ETextCommit::Type CommitMethod)
 {
 	if (CommitMethod == ETextCommit::OnEnter)
@@ -773,7 +816,12 @@ void UConversationWidget::HandleAnswerFeedback(const FAnswerFeedback& Feedback)
 	const UConversationSubsystem* Conversations = GetConversationSubsystem();
 	const bool bPractice = Conversations
 		&& (Conversations->GetMode() == EConversationMode::Practice || Conversations->GetMode() == EConversationMode::Review);
-	if (Result.bPassed)
+	if (Result.bPassed && !Feedback.Hint.IsEmpty())
+	{
+		ShowFeedback(FText::Format(LOCTEXT("PassWithNote", "{0} \"{1}\""), Feedback.Hint, FText::FromString(Feedback.ModelAnswer)),
+			LinguaSpyStyle::TileCorrect);
+	}
+	else if (Result.bPassed)
 	{
 		ShowFeedback(Feedback.bAssisted
 			? FText::Format(LOCTEXT("AssistedPass", "Got it: \"{0}\". Next time, try it without help."), FText::FromString(Feedback.ModelAnswer))

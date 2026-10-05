@@ -274,6 +274,24 @@ void UAssessmentWidget::ShowItem()
 		TypeBox->SetHintText(LOCTEXT("TypeGap", "Type the missing word(s)"));
 		AddRow(Body, TypeBox, 12.f);
 		TypeBox->SetKeyboardFocus();
+		if (Language && !Language->SpecialCharacters.IsEmpty())
+		{
+			UWrapBox* Keys = WidgetTree->ConstructWidget<UWrapBox>(UWrapBox::StaticClass());
+			Keys->SetInnerSlotPadding(FVector2D(6.f, 6.f));
+			for (const TCHAR C : Language->SpecialCharacters)
+			{
+				if (FChar::IsWhitespace(C))
+				{
+					continue;
+				}
+				UWordTileWidget* Key = CreateWidget<UWordTileWidget>(GetOwningPlayer(), UWordTileWidget::StaticClass());
+				Key->SetWord(FString::Chr(C));
+				Key->SetChoiceStyle();
+				Key->OnTileClicked.AddDynamic(this, &UAssessmentWidget::HandleAccentKey);
+				Keys->AddChildToWrapBox(Key);
+			}
+			AddRow(Body, Keys, 6.f);
+		}
 	}
 	else
 	{
@@ -339,6 +357,15 @@ void UAssessmentWidget::HandleTile(UWordTileWidget* Tile)
 	}
 	Tile->bInAnswer = !Tile->bInAnswer;
 	LinguaSpyAudio::PlayUI(this, ESpyUISound::TilePlace);
+}
+
+void UAssessmentWidget::HandleAccentKey(UWordTileWidget* Key)
+{
+	if (TypeBox && Key)
+	{
+		TypeBox->SetText(FText::FromString(TypeBox->GetText().ToString() + Key->GetWord()));
+		TypeBox->SetKeyboardFocus();
+	}
 }
 
 void UAssessmentWidget::HandleNext()

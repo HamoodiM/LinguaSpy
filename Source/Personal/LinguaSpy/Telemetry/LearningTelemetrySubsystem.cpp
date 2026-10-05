@@ -21,8 +21,10 @@ void ULearningTelemetrySubsystem::Initialize(FSubsystemCollectionBase& Collectio
 
 	SessionStart = FDateTime::UtcNow();
 	SessionId = SessionStart.ToString(TEXT("%Y%m%d-%H%M%S"));
+	// -PilotMode, or a pilot.ini in Saved/ or next to the game (packaged builds keep Saved/ under %LOCALAPPDATA%)
 	bPilotMode = FParse::Param(FCommandLine::Get(), TEXT("PilotMode"))
-		|| FPaths::FileExists(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("pilot.ini")));
+		|| FPaths::FileExists(FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("pilot.ini")))
+		|| FPaths::FileExists(FPaths::Combine(FPaths::RootDir(), TEXT("pilot.ini")));
 
 	if (bPilotMode && SaveSubsystem && !SaveSubsystem->GetSettings().bTelemetryEnabled)
 	{

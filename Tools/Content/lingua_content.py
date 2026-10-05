@@ -212,8 +212,10 @@ def grammar_note(note_id, title, body, triggers, after=2):
 
 def language_pack(folder, name, city_id, language, city, code, tagline, color_hex, sort_order,
                   city_map="", word_spacing=True, readings=False, missions=None, conversations=None,
-                  grammar_notes=None, allow_typing=None):
+                  grammar_notes=None, allow_typing=None, special_chars=None):
     pack = get_or_create(folder, name, unreal.LanguagePackAsset)
+    if special_chars is not None:
+        pack.set_editor_property("special_characters", special_chars)
     if grammar_notes is not None:
         pack.set_editor_property("grammar_notes", grammar_notes)
     if allow_typing is not None:

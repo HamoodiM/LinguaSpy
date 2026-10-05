@@ -33,32 +33,55 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 
 ## Code layout & conventions
 - New gameplay code lives in `Source/Personal/LinguaSpy/`:
-  - `Data/` — content schemas (`UConversationAsset`, `ULanguagePackAsset`, structs in `ConversationTypes.h`).
+  - `Data/` — content schemas (`UConversationAsset`, `ULanguagePackAsset`, structs in `ConversationTypes.h`). Phase 5 added:
+    challenge `Hints` / `GapTokenIndices` / `RecognitionDistractors` / `ModelAudio`; node `LineAudio(Slow)`; node type
+    `IntelCheck` (`FIntelCheck`); pack `GrammarNotes` (field notes), `bAllowTypedInput`, `SpecialCharacters` (accent keys).
   - `Language/` — `USentenceGrader` (pure, testable), `ULanguageProgressSubsystem` (per-skill stats), `USrsScheduler` (pure Leitner
     scheduling, `FSrsItemKey` = `<conversation path>#<NodeId>#<ChoiceIndex>`), `USpacedRepetitionSubsystem` (records every graded
-    answer, review queues, phrasebook items, `SetDebugTimeOffsetHours` for tests), `UFluencyScoring` (pure grade from mistakes/peeks).
+    answer, review queues, phrasebook items, `SetDebugTimeOffsetHours` for tests, `FindStrongestForPhrase` = same phrase in another
+    conversation counts), `UFluencyScoring` (pure grade from mistakes/peeks), `UScaffoldPolicy` (pure: scaffold level from SRS box
+    and session errors — Recognize / Assemble / AssemblePlus / GapFill / Produce — tiles, gaps, recognition options, hints).
   - `Dialogue/` — `UConversationSubsystem` (world subsystem driving the active conversation, cover-blown practice drills and
     `Review` sessions via `StartReviewSession`/`StartReviewForCity`; `RevealTranslation` = tap-to-translate peek; tallies feed
-    `UMissionSubsystem::AddFluencyTally` when an NPC conversation ends).
+    `UMissionSubsystem::AddFluencyTally` when an NPC conversation ends). Phase 5: delegates carry `FChallengePresentation` /
+    `FAnswerFeedback`; feedback ladder (1st miss = hint + 40% penalty, 2nd = recast with model audio); `SubmitGapWords` /
+    `SubmitRecognition` / `SubmitIntel`; `RepeatLine(bSlow)`; handler modes (Shadowing / OnCall / RadioSilence, per city in the
+    save); debrief = review with `bDebrief` (doesn't promote SRS boxes); field notes announced after the conversation.
   - `Cover/` — `UCoverComponent` (cover meter on the player).
   - `Interaction/` — `ANpcCharacter` (mannequin-skeleton body, faces the player while talking, `ConversationOptions`
     gated by flags / `RequiredMission` / current target), `APedestrianCharacter` (wandering locals, AIController + navmesh).
   - `Camera/` — `UOcclusionFadeComponent` (fades occluders via Custom Primitive Data[0] → `M_ToonMaster` dither).
   - `Audio/` — `ULinguaSpyAudioSettings` (Project Settings → Game → LinguaSpy Audio: sounds + base mix levels),
     `ULinguaSpyAudioSubsystem` (volume = mix level × player slider × master, live slider changes, loop fade-in) behind
-    `LinguaSpyAudio::PlayUI/PlayLoop(…, ESpyAudioChannel)`.
+    `LinguaSpyAudio::PlayUI/PlayLoop(…, ESpyAudioChannel)`; `PlayVoice` (Voice channel, UI sound so it plays while paused,
+    ducks music).
   - `Mission/` — `UMissionAsset` (objective graph, `ResolveTransition`), `UMissionSubsystem` (city/mission/flags),
-    `UMissionTargetComponent` (id + beacon), `AMissionMarker` (ReachLocation), `AMissionPickup` (Collect).
-  - `Save/` — `ULinguaSpySaveGame` (v2: skills, cities, settings incl. volumes, `SrsItems`, `BestGrades`; `Migrate()` runs after
+    `UMissionTargetComponent` (id + beacon), `AMissionMarker` (ReachLocation), `AMissionPickup` (Collect). Missions carry
+    `BriefingChunks`, `CanDoStatements`, `DebriefItems`; the subsystem records mission items, starts the debrief, adapts the
+    handler mode (`AdaptHandlerMode`: S/A = less help, C = more) and tracks briefings.
+  - `Telemetry/` — `ULearningTelemetrySubsystem`: local JSONL learning log (`Saved/Telemetry`), off unless enabled or Pilot mode
+    (`-PilotMode`, or `pilot.ini` in Saved/ or next to the packaged game). **No network code — keep it that way.**
+  - `Assessment/` — `UAssessmentAsset` (test forms; pure `ScoreItem`), `UAssessmentSubsystem` (runs forms without feedback,
+    counterbalances A/B by participant code, stores `FAssessmentResult`s, placement sets the handler mode).
+  - `Save/` — `ULinguaSpySaveGame` (v3: skills, cities, settings incl. volumes + voice + telemetry toggle, `SrsItems`, `BestGrades`,
+    `HandlerModes`, field notes, `BriefingsCompleted`, `ParticipantCode`, `AssessmentResults`; `Migrate()` runs after
     load) + `ULinguaSpySaveSubsystem`. **Bump `CurrentVersion` + add a step in `Migrate` whenever the format changes.**
   - `UI/` — code-built widgets (conversation, tiles, HUD, main menu, city cards, pause); `BindWidgetOptional` lets a WBP restyle later.
-    `UOverlayPanelWidget` is the shared frame for `USettingsWidget`, `UPhrasebookWidget`, `UPracticeScreenWidget` (Safe house).
+    `UOverlayPanelWidget` is the shared frame for `USettingsWidget`, `UPhrasebookWidget`, `UPracticeScreenWidget` (Safe house),
+    `UBriefingWidget` (opened by the controller when a mission needs it; pauses the game), `UAssessmentWidget`, `UFieldNoteWidget`.
   - `Tests/` — automation tests (`LinguaSpy.*`: Grader, GraderLanguages, MissionTransitions, SaveRoundTrip, SaveRoundTripSrs,
-    SaveMigration, NpcConversationResolve, Srs.Schedule, Srs.ItemKey, FluencyGrade).
+    SaveMigration, NpcConversationResolve, Srs.Schedule, Srs.ItemKey, FluencyGrade, Scaffold.Choose, Scaffold.Material,
+    GraderTolerant, Feedback.Hint, Debrief.Select, Handler.Adapt, SaveMigrationV3, Assessment.Scoring, Telemetry.Format).
+    **Naming gotcha:** a test named `X.Y.Z` hides an existing test named `X.Y` — pick a sibling name instead.
 - `Source/PersonalEditor/` — editor-only module: **Tools → LinguaSpy → Conversation Editor** tab (`SConversationEditor`).
 - `Tools/Content/*.py` — Python content scripts (run in-editor via unreal-mcp): `paris_content.py` (+ `paris_croissant.py`),
   `madrid|tokyo|rome_content.py`, `art_setup.py` (imports + toon materials), `audio_setup.py` (MetaSounds). They overwrite
-  the assets they build; once an asset is hand-edited (editor/tool), stop regenerating it from the script.
+  the assets they build; assets saved from the Conversation Editor get the `LinguaSpy.HandEdited` metadata tag and
+  `lingua_content.get_or_create` skips them (set `lingua_content.FORCE = True` to override).
+  Phase 5: `paris_assessment.py` (FR_A/FR_B test forms), `voice_build.py` (Piper TTS → SoundWaves; run synth / import /
+  assign as separate calls — synth exceeds the 30 s MCP limit in-editor; re-run after any content script, which rebuilds nodes).
+- `Tools/Analysis/pilot_report.py` — stdlib-only pilot analysis (`--selftest` uses synthetic data, clearly marked).
+- `Tools/Test/pie_driver.py` (scripted PIE; answers at whatever scaffold level is presented) + `capture_window.ps1` (PrintWindow).
 - `Tools/Greybox/greybox_kit.py` + `cities.py` — layout-driven city map builder (`build_city_map(PARIS|MADRID|TOKYO|ROME)`).
 - `Tools/Blender/build_characters.py` / `build_kits.py` — procedural Blender builders (run via Blender MCP) for the 7 characters
   and the per-city environment kits; `.blend` files saved next to them. Exports go to `Saved/Export/`.
@@ -133,7 +156,8 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   credits in `docs/Credits.md`); pick sounds with `Tools/Audio/analyze_audio.py` — avoid sustained single-pitch pads
   (flatness ≈ 0) and bright clicks (centroid > ~3 kHz). All cities share one music track + street bed for now.
 - Git LFS is enabled for `*.uasset` / `*.umap`.
-- Next phase: Phase 5 ideas above; `HANDOFF.md` is the Phase 4 brief (historical).
+- Phase 5 progress: `docs/Phase5_Log.md`. Pilot kit: `docs/pilot_kit/`. `HANDOFF.md` is the Phase 4 brief (historical).
+- **Claims:** no learning-outcome claims anywhere (README, resume text, store pages) until a real pilot has produced data.
 
 ## Build / test
 - Editor must be closed (or use Live Coding for non-header changes) when adding new UCLASSes:

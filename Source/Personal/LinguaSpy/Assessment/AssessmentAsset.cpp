@@ -14,7 +14,11 @@ bool UAssessmentAsset::ScoreItem(const FAssessmentItem& Item, int32 ChoiceIndex,
 	case EAssessmentItemType::MeaningChoose:
 		return ChoiceIndex != INDEX_NONE && ChoiceIndex == Item.CorrectIndex;
 	case EAssessmentItemType::GapFill:
-		return USentenceGrader::Grade(Item.Challenge, UScaffoldPolicy::FillGaps(Item.Challenge, Tokens)).bPassed;
+	{
+		// Typed: accents are not scored (they measure the keyboard as much as the language)
+		const FGradeResult Result = USentenceGrader::Grade(Item.Challenge, UScaffoldPolicy::FillGaps(Item.Challenge, Tokens));
+		return Result.bPassed || Result.bAccentOnly;
+	}
 	case EAssessmentItemType::Assemble:
 		return USentenceGrader::Grade(Item.Challenge, Tokens).bPassed;
 	}

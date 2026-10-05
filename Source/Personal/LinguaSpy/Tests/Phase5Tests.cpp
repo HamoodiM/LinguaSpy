@@ -270,6 +270,9 @@ bool FLinguaSpyAssessmentTest::RunTest(const FString& Parameters)
 	Gap.Challenge = LinguaSpyPhase5Test::MakeCafe();
 	TestTrue(TEXT("Gap right"), UAssessmentAsset::ScoreItem(Gap, INDEX_NONE, { TEXT("voudrais") }));
 	TestFalse(TEXT("Gap wrong"), UAssessmentAsset::ScoreItem(Gap, INDEX_NONE, { TEXT("veux") }));
+	FAssessmentItem GapAccent = Gap;
+	GapAccent.Challenge.GapTokenIndices = { 3 };
+	TestTrue(TEXT("Typed gap ignores accents"), UAssessmentAsset::ScoreItem(GapAccent, INDEX_NONE, { TEXT("cafe") }));
 
 	FAssessmentItem Assemble;
 	Assemble.Type = EAssessmentItemType::Assemble;

@@ -86,6 +86,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Learning", meta=(TitleProperty="Title"))
 	TArray<FGrammarNote> GrammarNotes;
 
+	/** On-screen keys for letters that English keyboards lack (e.g. "éèêàâçùûîôœ"). Shown under the typing box. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Language")
+	FString SpecialCharacters;
+
 	bool CanType() const { return bAllowTypedInput && bUsesWordSpacing; }
 
 	/** Optional font for target-language text (e.g. a CJK font). Uses the default font if unset. */
