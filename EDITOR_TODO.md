@@ -21,6 +21,8 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
 - [ ] **Clean up the save backups if you like.** `Saved/SaveGames/` has backups from Phase 4 testing: `*.user_backup_v1.sav` is your original, `*.user_backup_migrated_v2.sav` is the same profile migrated, and `*.phase4_test.sav` is the test profile. Your real profile has been restored as `LinguaSpyProfile.sav`.
 
 ## Decisions pending
+- [ ] **Phase 5 plan (rewritten).** Review `docs/Phase5_Plan.md`, `docs/Learning_Design.md` and `docs/Pilot_Study_Protocol.md`, then answer the 4 "Decisions needed" at the end of the plan (TTS download, pilot language, typed input, scope cut line).
+- [ ] **MathemaTech pilot.** Get written permission from MathemaTech (and parent/guardian consent if students are under 18). Fill in the results table in `Pilot_Study_Protocol.md` only from real sessions.
 - [ ] **Japanese font:** the engine fallback renders fine. Optionally swap in Noto Sans JP for a nicer look.
 
 ## Done

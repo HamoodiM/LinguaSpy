@@ -24,8 +24,12 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
   cel-shading + outlines, Blender-modeled characters on the mannequin skeleton, env kits, occlusion fade, UI skin, MetaSound audio, NPC life.
 - **Phase 4 (done, see `docs/Phase4_Plan.md` / `docs/Phase4_Log.md`)** — learning systems (Leitner SRS, Safe house review screen,
   phrasebook, tap-to-translate + per-mission fluency grade S/A/B/C, settings screen) and CC0 audio replacing the MetaSounds.
-- **Phase 5 (ideas)** — more cities/languages (German, Portuguese, Korean, Mandarin w/ pinyin), second missions for Madrid/Tokyo/Rome,
-  per-city CC0 music, template cleanup (`Variant_*`, `/Game/TopDown`).
+- **Phase 5 (planned, see `docs/Phase5_Plan.md`)**: research-grounded learning loop (`docs/Learning_Design.md`):
+  briefing → scaffolded field challenges → debrief, feedback ladder, offline TTS voice, field notes, intel checks,
+  handler modes, CEFR can-dos. Also A2 second missions for Madrid/Tokyo/Rome, assessment mode + local telemetry +
+  packaged pilot build (`docs/Pilot_Study_Protocol.md`), replay, per-city music, template cleanup.
+- **Phase 6–7 (ideas)**: FSRS, Berlin/German, teacher mode, localization, accessibility, offline speech input, more languages.
+- **No learning-outcome claims** (README, docs, store pages) until a real pilot has produced data.
 
 ## Code layout & conventions
 - New gameplay code lives in `Source/Personal/LinguaSpy/`:
