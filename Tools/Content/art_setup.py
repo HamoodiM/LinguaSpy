@@ -132,10 +132,16 @@ def build_toon_master():
     m.set_editor_property("dither_opacity_mask", False)
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m, False)
+    # Visual polish v2 (contact darkening, variation, roof tint, paving, emissive, shadows kept when faded)
+    exec(open(r"C:/UnrealEngineProjects/Personal/Tools/Content/toon_master_v2.py", encoding="utf-8").read(), globals())
+    upgrade_toon_master()
+    keep_shadows_when_faded()
     return m
 
 
-PP_CODE = r"""
+# Phase 3 toon pass (v1), kept for reference / revert. v2 (light hue, emissive pass-through, 1/depth outlines, haze)
+# lives in pp_toon_v2.py and is applied IN PLACE by build_pp_toon() below (see docs/Visual_Polish_Log.md).
+PP_CODE_V1 = r"""
 float2 uv = GetDefaultSceneTextureUV(Parameters, 14);
 float3 col = SceneTextureLookup(uv, 14, false).rgb;
 float depth = SceneTextureLookup(uv, 1, false).r;
@@ -165,12 +171,17 @@ return lerp(toon, OutlineColor * LitLevel, edge);
 
 
 def build_pp_toon(lit_level=1.0):
-    m = _new_material("PP_Toon")
+    """Creates PP_Toon (v1 graph) only if it doesn't exist, then upgrades it to v2 in place. Never deletes the asset:
+    every map's ToonPostProcess volume (and the MI_PP_Toon_<City> instances) reference it."""
+    if EAL.does_asset_exist(f"{MAT}/PP_Toon"):
+        exec(open(r"C:/UnrealEngineProjects/Personal/Tools/Content/pp_toon_v2.py", encoding="utf-8").read(), globals())
+        return upgrade_pp_toon()
+    m = AT.create_asset("PP_Toon", MAT, unreal.Material, unreal.MaterialFactoryNew())
     m.set_editor_property("material_domain", unreal.MaterialDomain.MD_POST_PROCESS)
     m.set_editor_property("blendable_location", unreal.BlendableLocation.BL_SCENE_COLOR_BEFORE_DOF)
 
     custom = MEL.create_material_expression(m, unreal.MaterialExpressionCustom, -400, 0)
-    custom.set_editor_property("code", PP_CODE)
+    custom.set_editor_property("code", PP_CODE_V1)
     custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
 
     params = [("LitLevel", lit_level), ("T1", 0.35), ("T2", 0.75), ("ShadowLevel", 0.45), ("MidLevel", 0.75),
@@ -205,6 +216,8 @@ def build_pp_toon(lit_level=1.0):
     MEL.connect_material_property(custom, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     MEL.recompile_material(m)
     EAL.save_loaded_asset(m, False)
+    exec(open(r"C:/UnrealEngineProjects/Personal/Tools/Content/pp_toon_v2.py", encoding="utf-8").read(), globals())
+    upgrade_pp_toon()
     return m
 
 
