@@ -50,6 +50,9 @@ PARIS = dict(
         dict(mesh=f"{A}/Paris/SM_Paris_Eiffel", loc=(7800, 2600, 0), scale=(1.4, 1.4, 1.4), collide=False),
     ],
     complex_collision=[f"{A}/Paris/SM_Paris_Bridge", f"{A}/Paris/SM_Paris_MetroArch"],
+    # The Seine slab is walkable collision: keep the navmesh off the water between the quais (bridge deck |y| < 407)
+    nav_blockers=[dict(label="Seine_N", min=(3730, 430, -50), max=(4470, 3600, 60)),
+                  dict(label="Seine_S", min=(3730, -3600, -50), max=(4470, -430, 60))],
     lighting=dict(sun_pitch=-48, sun_yaw=35, sun_color="FFEAD2", sun_intensity=6.0, sky_color="DDE6FF", fog_color="C8D8F0"),
     player_start=(-3200, 0, 100),
     nav_center_x=500,
@@ -150,6 +153,7 @@ TOKYO = dict(
     row_specials=dict(north=[dict(x=-1500, mesh=f"{A}/Tokyo/SM_Tokyo_Konbini", tint="F7F4EE", label="Konbini")]),
     furniture=dict(lamp=f"{A}/Tokyo/SM_Tokyo_Lamp", tree=f"{A}/Tokyo/SM_Tokyo_Tree", spacing=1000, skip=[(1200, 3300)]),
     slabs=[dict(label="ShrineGrounds", center=(2250, -1900, 3), size=(1900, 2600, 6), color="D9CFC0")],
+    complex_collision=[f"{A}/Tokyo/SM_Tokyo_Torii"],  # the auto convex hull turned the gate into a solid wall
     props=[
         dict(mesh=f"{A}/Tokyo/SM_Tokyo_Shrine", loc=(2250, -2900, 4), tint="F7F4EE", label="Shrine"),
         dict(mesh=f"{A}/Tokyo/SM_Tokyo_Torii", loc=(2250, -1000, 4)),
@@ -215,3 +219,57 @@ ROME = dict(
     pedestrian_meshes=PEDS,
     pedestrians=[(-2800, 550, 98), (-800, 1600, 98), (800, 2800, 98), (1200, -550, 98), (2800, 550, 98), (-1000, -550, 98)],
 )
+
+# ---------------------------------------------------------------------------------------------------------------
+# Per-city looks (visual polish): one strong time of day per city. Applied to the existing maps with
+# greybox_kit.apply_look(CITY) (no rebuild). Toon keys are PP_Toon parameters (MI_PP_Toon_<City>); grading goes on the
+# ToonPostProcess volume (white_temp > 6500 = warmer image); roof = per-city roof colour (M_ToonMaster v2);
+# glow = mesh-name fragment -> Emissive strength (PP_Toon v2 lets emissive pixels through).
+# ---------------------------------------------------------------------------------------------------------------
+PARIS["look"] = dict(   # soft gold morning, lilac haze
+    sun_pitch=-30, sun_yaw=120, sun_color="FFE6C4", sun_intensity=6.0,
+    sky_color="BFD3F2", sky_intensity=1.2, fog_color="E9E1F0", fog_density=0.015, fog_start=3000,
+    grading=dict(white_temp=6700, saturation=1.04, contrast=1.04, gain_shadows=(0.98, 0.96, 1.06, 1.0), bloom=0.3, vignette=0.3, ao=0.6),
+    dof=dict(focal=2500, fstop=1.0, sensor=180),
+    toon=dict(LitLevel=1.0, LightNorm=1.0, LightHueKeep=0.55, ShadowTint="C9C0EA", HazeColor="E9E1F0", HazeMax=0.35),
+    roof="7C8AA0",
+)
+MADRID["look"] = dict(  # white-hot afternoon, violet shadows
+    sun_pitch=-66, sun_yaw=30, sun_color="FFF4E0", sun_intensity=8.0,
+    sky_color="FFE6C2", sky_intensity=1.0, fog_color="F5DDB5", fog_density=0.015, fog_start=3000,
+    grading=dict(white_temp=6600, saturation=1.02, contrast=1.12, gain_shadows=(0.96, 0.94, 1.08, 1.0), bloom=0.3, vignette=0.3, ao=0.6),
+    dof=dict(focal=2500, fstop=1.0, sensor=180),
+    toon=dict(LitLevel=0.97, LightNorm=1.33, LightHueKeep=0.4, ShadowLevel=0.4, ShadowTint="A998E0", HazeColor="F5DDB5", HazeMax=0.3),
+    roof="C46A4A",
+)
+TOKYO["look"] = dict(   # blue-hour dusk: last orange light, deep blue shade, glowing lanterns and vending machines
+    sun_pitch=-10, sun_yaw=70, sun_color="FFC2A0", sun_intensity=2.2,
+    sky_color="4A5AC0", sky_intensity=2.5, fog_color="4E5A8A", fog_density=0.02, fog_start=2500,
+    grading=dict(white_temp=4800, saturation=1.0, contrast=1.08, gain_shadows=(0.9, 0.96, 1.15, 1.0), bloom=0.8, bloom_threshold=1.0, vignette=0.45, ao=0.6),
+    dof=dict(focal=2500, fstop=1.0, sensor=180),
+    toon=dict(LitLevel=0.8, LightNorm=0.5, LightHueKeep=0.45, EmissiveThreshold=2.2, ShadowTint="6F88E8", HazeColor="4E5A8A", HazeMax=0.4),
+    roof="4A4F63",
+    glow={"Lantern": 1.2, "Vending": 1.0},
+)
+ROME["look"] = dict(    # golden hour: long amber shadows across the piazza
+    sun_pitch=-20, sun_yaw=60, sun_color="FFD199", sun_intensity=6.0,
+    sky_color="FFE0B8", sky_intensity=1.0, fog_color="F2CFA0", fog_density=0.015, fog_start=3000,
+    grading=dict(white_temp=6900, saturation=1.04, contrast=1.05, gain_shadows=(0.98, 0.94, 1.04, 1.0), bloom=0.35, vignette=0.35, ao=0.6),
+    dof=dict(focal=2500, fstop=1.0, sensor=180),
+    toon=dict(LitLevel=1.0, LightNorm=1.0, LightHueKeep=0.45, ShadowTint="C7A0C0", HazeColor="F2CFA0", HazeMax=0.3),
+    roof="C46A4A",
+)
+
+# Street-level detail (Q6): road colour, paving (scale cm, joint width 0..1, strength), plazas, markings, crosswalks
+PARIS["street"] = dict(road="9C9590", road_paving=(45, 0.08, 0.10), sidewalk="E6DFD2", sidewalk_paving=(120, 0.03, 0.06),
+                       plazas={"PlaceDuTertre": ("D8CFC0", (90, 0.05, 0.08))}, marking="F2EEE6", kerb="CFC7B8",
+                       crosswalks=[-1350, 900], dashes=False)
+MADRID["street"] = dict(road="C9B08F", road_paving=(50, 0.08, 0.08), sidewalk="EFE3CF", sidewalk_paving=(100, 0.03, 0.05),
+                        plazas={"PlazaMayor": ("E9D2AE", (200, 0.03, 0.07))}, marking="FFF6E6", kerb="D9C7A8",
+                        crosswalks=[-2050, 2600])
+TOKYO["street"] = dict(road="4A4E62", sidewalk="E3E0EA", sidewalk_paving=(60, 0.04, 0.06),
+                       plazas={"ShrineGrounds": ("D9CFC0", (80, 0.05, 0.06))}, marking="F4F4F8", kerb="B8B4C4",
+                       crosswalks=[-1050, 500, 2250])
+ROME["street"] = dict(road="6F6A66", road_paving=(25, 0.1, 0.12), sidewalk="E6D8C0", sidewalk_paving=(90, 0.03, 0.05),
+                      plazas={"Piazza": ("E8D6B5", (160, 0.03, 0.07))}, marking="EDE6DA", kerb="CDBFA6",
+                      crosswalks=[-2150, 0], dashes=False)
