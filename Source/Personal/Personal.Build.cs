@@ -41,7 +41,8 @@ public class Personal : ModuleRules
 			"Personal/LinguaSpy/Camera",
 			"Personal/LinguaSpy/Audio",
 			"Personal/LinguaSpy/Telemetry",
-			"Personal/LinguaSpy/Assessment"
+			"Personal/LinguaSpy/Assessment",
+			"Personal/LinguaSpy/Look"
 		});
 
 		// Uncomment if you are using Slate UI

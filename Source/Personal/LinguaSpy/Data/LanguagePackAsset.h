@@ -10,6 +10,7 @@ class UConversationAsset;
 class UMissionAsset;
 class UFont;
 class USoundBase;
+class UCityLookAsset;
 
 /**
  *  A short explicit grammar note ("field note"), shown once the learner has met the pattern a few times
@@ -110,6 +111,10 @@ public:
 	/** Missions played in order in this city. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Language")
 	TArray<TSoftObjectPtr<UMissionAsset>> Missions;
+
+	/** Time of day, colour grading and toon settings applied when the city map starts (UCityLookSubsystem). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Look")
+	TSoftObjectPtr<UCityLookAsset> Look;
 
 	/** Looping street ambience played in the city. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Audio")

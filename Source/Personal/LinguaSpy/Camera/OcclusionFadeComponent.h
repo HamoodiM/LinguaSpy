@@ -28,9 +28,9 @@ protected:
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	/** Sweep radius around the camera-to-pawn line. */
+	/** Sweep radius around the camera-to-pawn line (wider since the camera moved back to 25 m). */
 	UPROPERTY(EditAnywhere, Category="Occlusion")
-	float SweepRadius = 60.f;
+	float SweepRadius = 110.f;
 
 	/** How fast primitives fade in/out (fade units per second). */
 	UPROPERTY(EditAnywhere, Category="Occlusion")
