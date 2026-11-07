@@ -147,8 +147,16 @@ struct FMissionGrade
 	UPROPERTY(BlueprintReadOnly, Category="Grade")
 	int32 Mistakes = 0;
 
+	/** Translations revealed with tap-to-translate (v4+; before v4 this also counted Retries). */
 	UPROPERTY(BlueprintReadOnly, Category="Grade")
 	int32 Peeks = 0;
+
+	/** Answers that passed on the second try, after the handler's hint (v4+). Count as help, like a peek. */
+	UPROPERTY(BlueprintReadOnly, Category="Grade")
+	int32 Retries = 0;
+
+	/** Help used, as the fluency grade sees it (UFluencyScoring::ComputeGrade's Peeks argument). */
+	int32 GetHelpCount() const { return Peeks + Retries; }
 };
 
 /** Player settings that persist between sessions. */
@@ -196,8 +204,9 @@ public:
 	/**
 	 *  v1: skills, cities, settings. v2: SRS items, best mission grades, volume + translation settings.
 	 *  v3: handler modes, field notes, briefings, assessment results, participant code, voice volume, telemetry toggle.
+	 *  v4: FMissionGrade.Retries split out of Peeks (hint-assisted passes were reported as "translations peeked").
 	 */
-	static constexpr int32 CurrentVersion = 3;
+	static constexpr int32 CurrentVersion = 4;
 
 	/** Upgrades an older profile in place, one version at a time. Returns true if anything changed. */
 	static bool Migrate(ULinguaSpySaveGame* Save);

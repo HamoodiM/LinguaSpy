@@ -55,8 +55,14 @@ public:
 	/** Passing with this much support doesn't promote the SRS item (recognition, or a second attempt after a prompt). */
 	static bool IsAssistedPass(EScaffoldLevel Level, int32 Attempt);
 
-	/** Hint text after a wrong attempt: accent hint, authored hint for the first wrong token, general hint, or a generic one. */
-	static FText ChooseHint(const FWordTileChallenge& Challenge, const FGradeResult& Result, int32 SubmittedTokens);
+	/**
+	 *  Hint text after a wrong attempt: accent hint, authored hint for the first wrong token, general hint, or a generic one.
+	 *  Recognize (pick the sentence) gets its own hint: length / highlighted-word hints describe tile building, and
+	 *  token hints would point at token 0, which the recognition grader always reports as "first wrong".
+	 *  Unspaced languages count tiles, not words (a Japanese chunk like ください is one tile, not "a word").
+	 */
+	static FText ChooseHint(const FWordTileChallenge& Challenge, const FGradeResult& Result, int32 SubmittedTokens,
+		EScaffoldLevel Level = EScaffoldLevel::Assemble, bool bUsesWordSpacing = true);
 
 	/** Display name for UI/telemetry ("Recognize", "GapFill", ...). */
 	static FString LevelName(EScaffoldLevel Level);

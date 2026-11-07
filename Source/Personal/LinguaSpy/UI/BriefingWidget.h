@@ -12,6 +12,14 @@ class UMissionAsset;
 class UVerticalBox;
 class UWordTileWidget;
 
+/** What the quick-check step counter shows for one item ("Quick check (3 / 8)" or "Second look (1 / 2)"). */
+struct FBriefingQuizStep
+{
+	bool bRetryRound = false;
+	int32 Number = 0;  // 1-based within its round
+	int32 Count = 0;   // items in that round
+};
+
 /**
  *  Comprehensible input before output (docs/Learning_Design.md section 1):
  *  1. Study: one card per phrase (text, reading, meaning, situation, audio).
@@ -29,6 +37,13 @@ public:
 	void SetMission(UMissionAsset* InMission, ULanguagePackAsset* InLanguage, bool bInReviewOnly = false);
 
 	virtual void Close() override;
+
+	/**
+	 *  Pure: step counter for quiz item InQuizIndex. The first round has InFirstRoundCount items; a missed item is appended
+	 *  once at the end (retry round). Counting against the live array length made the total grow after every miss
+	 *  ("1 / 16" -> "2 / 17"), so each round is counted on its own.
+	 */
+	static FBriefingQuizStep GetQuizStep(int32 InQuizIndex, int32 InFirstRoundCount, int32 InNumItems);
 
 protected:
 
@@ -94,6 +109,7 @@ private:
 	TArray<FQuizItem> Quiz;
 	int32 StudyIndex = 0;
 	int32 QuizIndex = INDEX_NONE;
+	int32 FirstRoundCount = 0;
 	int32 CorrectOption = INDEX_NONE;
 	int32 FirstTryCorrect = 0;
 	int32 FirstTryTotal = 0;

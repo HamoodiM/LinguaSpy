@@ -202,7 +202,7 @@ public:
 
 	/** Tallies for the running conversation (graded answers, wrong answers, peeks). */
 	UFUNCTION(BlueprintPure, Category="Conversation")
-	void GetFluencyTally(int32& OutChallenges, int32& OutMistakes, int32& OutPeeks) const;
+	void GetFluencyTally(int32& OutChallenges, int32& OutMistakes, int32& OutPeeks, int32& OutRetries) const;
 
 	/** Picks an option at a PlayerChoice node. */
 	UFUNCTION(BlueprintCallable, Category="Conversation")
@@ -354,6 +354,7 @@ private:
 	int32 TallyChallenges = 0;
 	int32 TallyMistakes = 0;
 	int32 TallyPeeks = 0;
+	int32 TallyRetries = 0;
 
 	/** Field notes unlocked during this conversation (announced when it ends). */
 	TArray<FName> PendingFieldNotes;

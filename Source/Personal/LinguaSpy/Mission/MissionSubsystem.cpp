@@ -287,7 +287,7 @@ void UMissionSubsystem::CompleteObjective(FName Outcome)
 
 		// Fluency grade for this run; keep the best one in the profile
 		LastGrade = MissionTally;
-		LastGrade.Grade = UFluencyScoring::ComputeGrade(MissionTally.Challenges, MissionTally.Mistakes, MissionTally.Peeks);
+		LastGrade.Grade = UFluencyScoring::ComputeGrade(MissionTally.Challenges, MissionTally.Mistakes, MissionTally.GetHelpCount());
 		if (ULinguaSpySaveGame* Save = SaveSubsystem ? SaveSubsystem->GetSave() : nullptr)
 		{
 			FMissionGrade* Best = Save->BestGrades.Find(Completed->MissionId);
@@ -296,8 +296,8 @@ void UMissionSubsystem::CompleteObjective(FName Outcome)
 				Save->BestGrades.Add(Completed->MissionId, LastGrade);
 			}
 		}
-		UE_LOG(LogPersonal, Log, TEXT("Mission '%s' graded %s (%d challenges, %d mistakes, %d peeks)"), *Completed->MissionId.ToString(),
-			*UFluencyScoring::GradeLetter(LastGrade.Grade).ToString(), LastGrade.Challenges, LastGrade.Mistakes, LastGrade.Peeks);
+		UE_LOG(LogPersonal, Log, TEXT("Mission '%s' graded %s (%d challenges, %d mistakes, %d peeks, %d retries)"), *Completed->MissionId.ToString(),
+			*UFluencyScoring::GradeLetter(LastGrade.Grade).ToString(), LastGrade.Challenges, LastGrade.Mistakes, LastGrade.Peeks, LastGrade.Retries);
 
 		// Fade (or restore) the handler's support based on how independently the player spoke
 		HandlerBefore = HandlerAfter = SaveSubsystem ? SaveSubsystem->GetHandlerMode(CurrentPack->CityId) : EHandlerMode::Shadowing;
@@ -311,7 +311,7 @@ void UMissionSubsystem::CompleteObjective(FName Outcome)
 		}
 		ULearningTelemetrySubsystem::LogEvent(this, FTelemetryEvent(TEXT("mission_end"))
 			.Id(TEXT("mission"), Completed->MissionId).Str(TEXT("result"), TEXT("complete")).Int(TEXT("grade"), LastGrade.Grade)
-			.Int(TEXT("challenges"), LastGrade.Challenges).Int(TEXT("mistakes"), LastGrade.Mistakes).Int(TEXT("peeks"), LastGrade.Peeks)
+			.Int(TEXT("challenges"), LastGrade.Challenges).Int(TEXT("mistakes"), LastGrade.Mistakes).Int(TEXT("peeks"), LastGrade.Peeks).Int(TEXT("retries"), LastGrade.Retries)
 			.Int(TEXT("handler_before"), static_cast<int32>(HandlerBefore)).Int(TEXT("handler_after"), static_cast<int32>(HandlerAfter)));
 
 		const TArray<FString> Debrief = SelectDebriefItems(MissionItems, Completed->DebriefItems);
@@ -355,13 +355,14 @@ void UMissionSubsystem::CompleteObjective(FName Outcome)
 
 // ---- Fluency ----------------------------------------------------------------------------------------------------
 
-void UMissionSubsystem::AddFluencyTally(int32 Challenges, int32 Mistakes, int32 Peeks)
+void UMissionSubsystem::AddFluencyTally(int32 Challenges, int32 Mistakes, int32 Peeks, int32 Retries)
 {
 	if (ActiveMission)
 	{
 		MissionTally.Challenges += Challenges;
 		MissionTally.Mistakes += Mistakes;
 		MissionTally.Peeks += Peeks;
+		MissionTally.Retries += Retries;
 	}
 }
 

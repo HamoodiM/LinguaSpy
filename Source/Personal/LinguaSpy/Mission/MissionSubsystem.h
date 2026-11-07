@@ -95,7 +95,7 @@ public:
 	// ---- Fluency (helper reliance) ---------------------------------------------------------------------------
 
 	/** Adds a finished NPC conversation's tallies to the active mission's fluency grade. */
-	void AddFluencyTally(int32 Challenges, int32 Mistakes, int32 Peeks);
+	void AddFluencyTally(int32 Challenges, int32 Mistakes, int32 Peeks, int32 Retries = 0);
 
 	/** Tallies so far for the active mission (reset when a mission starts, restarts or the city is re-entered). */
 	UFUNCTION(BlueprintPure, Category="LinguaSpy|Mission")

@@ -214,15 +214,17 @@ bool UScaffoldPolicy::IsAssistedPass(EScaffoldLevel Level, int32 Attempt)
 	return Level == EScaffoldLevel::Recognize || Attempt > 1;
 }
 
-FText UScaffoldPolicy::ChooseHint(const FWordTileChallenge& Challenge, const FGradeResult& Result, int32 SubmittedTokens)
+FText UScaffoldPolicy::ChooseHint(const FWordTileChallenge& Challenge, const FGradeResult& Result, int32 SubmittedTokens,
+	EScaffoldLevel Level, bool bUsesWordSpacing)
 {
-	if (Result.bAccentOnly)
+	const bool bRecognize = Level == EScaffoldLevel::Recognize;
+	if (Result.bAccentOnly && !bRecognize)
 	{
 		return LOCTEXT("AccentHint", "So close - the words are right. Check the accents.");
 	}
 	for (const FChallengeHint& Hint : Challenge.Hints)
 	{
-		if (Hint.TokenIndex >= 0 && Hint.TokenIndex == Result.FirstWrongIndex && !Hint.Text.IsEmpty())
+		if (!bRecognize && Hint.TokenIndex >= 0 && Hint.TokenIndex == Result.FirstWrongIndex && !Hint.Text.IsEmpty())
 		{
 			return Hint.Text;
 		}
@@ -234,12 +236,20 @@ FText UScaffoldPolicy::ChooseHint(const FWordTileChallenge& Challenge, const FGr
 			return Hint.Text;
 		}
 	}
+	if (bRecognize)
+	{
+		return LOCTEXT("RecognizeHint", "Not quite - that sentence says something else. Read the line again and pick the one that answers it.");
+	}
 	const int32 Expected = Challenge.AcceptedAnswers.IsEmpty() ? 0 : Challenge.AcceptedAnswers[0].Tokens.Num();
 	if (Expected > 0 && SubmittedTokens != Expected && Result.ClosestAnswerIndex == 0)
 	{
-		return FText::Format(LOCTEXT("LengthHint", "Not quite. The phrase has {0} {0}|plural(one=word,other=words)."), Expected);
+		return bUsesWordSpacing
+			? FText::Format(LOCTEXT("LengthHint", "Not quite. The phrase has {0} {0}|plural(one=word,other=words)."), Expected)
+			: FText::Format(LOCTEXT("LengthHintTiles", "Not quite. The phrase is built from {0} {0}|plural(one=tile,other=tiles)."), Expected);
 	}
-	return LOCTEXT("GenericHint", "Not quite. Look at the highlighted word and try again.");
+	return bUsesWordSpacing
+		? LOCTEXT("GenericHint", "Not quite. Look at the highlighted word and try again.")
+		: LOCTEXT("GenericHintTiles", "Not quite. Look at the highlighted tile and try again.");
 }
 
 FString UScaffoldPolicy::LevelName(EScaffoldLevel Level)

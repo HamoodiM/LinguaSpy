@@ -32,6 +32,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="HUD")
 	void ShowBanner(const FText& Title, const FText& Subtitle, float Duration = 4.f);
 
+	/** A banner is showing, held, or queued (the controller waits for this before opening the next briefing). */
+	bool IsBannerBusy() const { return BannerTimeLeft > 0.f || BannerQueue.Num() > 0; }
+
 protected:
 
 	UPROPERTY(BlueprintReadOnly, Category="HUD", meta=(BindWidgetOptional))
@@ -87,6 +90,13 @@ private:
 	void HandleCityCompleted();
 
 	void DisplayBanner(const FText& Title, const FText& Subtitle, float Duration);
+
+	/**
+	 *  Banners never share the screen with a conversation/debrief panel or a pausing overlay (briefing, field note,
+	 *  pause menu): while one is up, the current banner is hidden with its time frozen and new ones queue.
+	 */
+	bool IsBannerHeld() const;
+	bool bBannerSuspended = false;
 
 	struct FPendingBanner
 	{

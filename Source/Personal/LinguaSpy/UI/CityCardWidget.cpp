@@ -138,8 +138,13 @@ void UCityCardWidget::SetPack(ULanguagePackAsset* InPack, int32 CompletedMission
 		const FText Base = !bPlayable ? LOCTEXT("ComingSoon", "Coming soon")
 			: TotalMissions == 0 ? LOCTEXT("NoMissions", "Free roam")
 			: FText::Format(LOCTEXT("Progress", "Missions {0}/{1}"), CompletedMissions, TotalMissions);
+		// The grades go on their own line: "Missions 1/2  -  grades A" is wider than the 220 px text column, and
+		// auto-wrap broke before the letter, leaving "A" alone. Non-breaking spaces keep each part in one piece.
+		const FString Nbsp = TEXT("\u00A0");
 		ProgressText->SetText(Grades.IsEmpty() ? Base
-			: FText::Format(LOCTEXT("ProgressGrades", "{0}  -  grades {1}"), Base, FText::FromString(FString::Join(Grades, TEXT(" ")))));
+			: FText::Format(LOCTEXT("ProgressGradesLine", "{0}\n{1}"), Base, FText::FromString(
+				(Grades.Num() == 1 ? TEXT("Best") + Nbsp + TEXT("grade:") : TEXT("Best") + Nbsp + TEXT("grades:")) + Nbsp
+				+ FString::Join(Grades, *(Nbsp + TEXT("\u00B7") + Nbsp)))));
 	}
 
 	const int32 Due = Srs ? Srs->GetDueCount(Pack->CityId) : 0;

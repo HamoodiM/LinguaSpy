@@ -18,6 +18,15 @@ int32 UFluencyScoring::ComputeGrade(int32 Challenges, int32 Mistakes, int32 Peek
 	return Reliance <= 0.25f ? 1 : Reliance <= 0.6f ? 2 : 3;
 }
 
+EAnswerOutcome UFluencyScoring::ClassifyAnswer(bool bPassed, int32 Attempts)
+{
+	if (!bPassed)
+	{
+		return EAnswerOutcome::Missed;
+	}
+	return Attempts > 1 ? EAnswerOutcome::AfterHint : EAnswerOutcome::Clean;
+}
+
 FText UFluencyScoring::GradeLetter(int32 Grade)
 {
 	static const TCHAR* Letters[] = { TEXT("S"), TEXT("A"), TEXT("B"), TEXT("C") };

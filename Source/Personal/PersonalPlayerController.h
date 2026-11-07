@@ -142,6 +142,16 @@ protected:
 
 	bool bBriefingPending = false;
 
+	/**
+	 *  Frames the camera manager has rendered from the pawn's camera. The briefing pauses the game, and while paused the
+	 *  world skips UpdateCameraManager, so opening it before the first real camera update froze the view at the
+	 *  controller's spawn point (ground level). Overlays wait until this is >= 2.
+	 */
+	int32 PawnViewFrames = 0;
+
+	/** True once the top-down camera has been live for a couple of frames. */
+	bool IsViewReadyForOverlay() const;
+
 	/** Opens/closes the pause menu (P or Escape) */
 	UFUNCTION()
 	void TogglePause();

@@ -24,6 +24,7 @@
 #include "MissionSubsystem.h"
 #include "LanguagePackAsset.h"
 #include "Kismet/GameplayStatics.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Blueprint/UserWidget.h"
 
 APersonalPlayerController::APersonalPlayerController()
@@ -114,6 +115,15 @@ void APersonalPlayerController::PlayerTick(float DeltaTime)
 {
 	Super::PlayerTick(DeltaTime);
 
+	if (GetPawn() && PlayerCameraManager && PlayerCameraManager->GetViewTarget() == GetPawn())
+	{
+		PawnViewFrames = FMath::Min(PawnViewFrames + 1, 1000);
+	}
+	if (bBriefingPending)
+	{
+		TryOpenBriefing(); // deferred until the camera is live and the HUD's banners are done
+	}
+
 	ANpcCharacter* Npc = PendingTalkTarget.Get();
 	APawn* ControlledPawn = GetPawn();
 	if (!Npc || !ControlledPawn || IsInConversation())
@@ -174,10 +184,15 @@ void APersonalPlayerController::TryOpenBriefing()
 		bBriefingPending = false;
 		return;
 	}
-	// Wait for a running conversation / debrief to finish first
+	// Wait for a running conversation / debrief to finish first, then for the HUD's banners (mission complete + grade),
+	// and for the top-down camera to be live (pausing before its first update freezes the view at ground level)
 	if (IsInConversation() || (BriefingWidget && BriefingWidget->IsInViewport()))
 	{
 		return;
+	}
+	if (!IsViewReadyForOverlay() || (HUDWidget && HUDWidget->IsBannerBusy()))
+	{
+		return; // PlayerTick retries while bBriefingPending
 	}
 	bBriefingPending = false;
 	BriefingWidget = CreateWidget<UBriefingWidget>(this, UBriefingWidget::StaticClass());
@@ -185,7 +200,16 @@ void APersonalPlayerController::TryOpenBriefing()
 	BriefingWidget->Open();
 	BriefingWidget->SetMission(Mission, Missions->GetCurrentPack());
 	StopMovement();
+	if (PlayerCameraManager)
+	{
+		PlayerCameraManager->UpdateCamera(0.f); // the camera doesn't update while paused: make the frozen frame current
+	}
 	UGameplayStatics::SetGamePaused(this, true);
+}
+
+bool APersonalPlayerController::IsViewReadyForOverlay() const
+{
+	return GetPawn() && PlayerCameraManager && PlayerCameraManager->GetViewTarget() == GetPawn() && PawnViewFrames >= 2;
 }
 
 void APersonalPlayerController::HandleBriefingClosed()

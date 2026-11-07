@@ -180,6 +180,7 @@ void UBriefingWidget::BuildQuiz()
 			Quiz.Add({ Order[i], EQuizKind::Situation, false });
 		}
 	}
+	FirstRoundCount = Quiz.Num();
 	QuizIndex = 0;
 }
 
@@ -213,7 +214,10 @@ void UBriefingWidget::ShowQuizItem()
 
 	if (StepText)
 	{
-		StepText->SetText(FText::Format(LOCTEXT("QuizStep", "Quick check ({0} / {1}) - nothing at stake, your cover is safe here."), QuizIndex + 1, Quiz.Num()));
+		const FBriefingQuizStep Step = GetQuizStep(QuizIndex, FirstRoundCount, Quiz.Num());
+		StepText->SetText(Step.bRetryRound
+			? FText::Format(LOCTEXT("QuizRetryStep", "Second look ({0} / {1}) - the ones that slipped. Still nothing at stake."), Step.Number, Step.Count)
+			: FText::Format(LOCTEXT("QuizStep", "Quick check ({0} / {1}) - nothing at stake, your cover is safe here."), Step.Number, Step.Count));
 	}
 
 	// Two distractors from the other chunks
@@ -272,6 +276,22 @@ void UBriefingWidget::ShowQuizItem()
 	{
 		NextButton->SetVisibility(ESlateVisibility::Collapsed);
 	}
+}
+
+FBriefingQuizStep UBriefingWidget::GetQuizStep(int32 InQuizIndex, int32 InFirstRoundCount, int32 InNumItems)
+{
+	FBriefingQuizStep Step;
+	const int32 FirstRound = FMath::Clamp(InFirstRoundCount, 0, InNumItems);
+	if (InQuizIndex < FirstRound)
+	{
+		Step.Number = InQuizIndex + 1;
+		Step.Count = FirstRound;
+		return Step;
+	}
+	Step.bRetryRound = true;
+	Step.Number = InQuizIndex - FirstRound + 1;
+	Step.Count = InNumItems - FirstRound;
+	return Step;
 }
 
 void UBriefingWidget::HandleOption(UWordTileWidget* Option)

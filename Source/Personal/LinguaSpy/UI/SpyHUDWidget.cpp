@@ -16,6 +16,8 @@
 #include "Components/VerticalBoxSlot.h"
 #include "Engine/GameInstance.h"
 #include "LinguaSpyAudio.h"
+#include "ConversationSubsystem.h"
+#include "Kismet/GameplayStatics.h"
 
 #define LOCTEXT_NAMESPACE "LinguaSpyHUD"
 
@@ -164,6 +166,25 @@ void USpyHUDWidget::NativeDestruct()
 void USpyHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	if (IsBannerHeld())
+	{
+		if (BannerPanel && BannerTimeLeft > 0.f && !bBannerSuspended)
+		{
+			BannerPanel->SetVisibility(ESlateVisibility::Collapsed);
+			bBannerSuspended = true;
+		}
+		return; // time stands still for banners while a panel or overlay is up
+	}
+	if (bBannerSuspended)
+	{
+		bBannerSuspended = false;
+		if (BannerPanel && BannerTimeLeft > 0.f)
+		{
+			BannerPanel->SetVisibility(ESlateVisibility::HitTestInvisible);
+			BannerPulseTime = 0.f;
+		}
+	}
+
 	constexpr float PulseDuration = 0.35f;
 	if (BannerPulseTime >= 0.f && BannerPanel)
 	{
@@ -178,17 +199,28 @@ void USpyHUDWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	if (BannerTimeLeft > 0.f)
 	{
 		BannerTimeLeft -= InDeltaTime;
-		if (BannerTimeLeft <= 0.f && BannerQueue.Num() > 0)
-		{
-			const FPendingBanner Next = BannerQueue[0];
-			BannerQueue.RemoveAt(0);
-			DisplayBanner(Next.Title, Next.Subtitle, Next.Duration);
-		}
-		else if (BannerTimeLeft <= 0.f && BannerPanel)
+		if (BannerTimeLeft <= 0.f && BannerPanel)
 		{
 			BannerPanel->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
+	if (BannerTimeLeft <= 0.f && BannerQueue.Num() > 0)
+	{
+		const FPendingBanner Next = BannerQueue[0];
+		BannerQueue.RemoveAt(0);
+		DisplayBanner(Next.Title, Next.Subtitle, Next.Duration);
+	}
+}
+
+bool USpyHUDWidget::IsBannerHeld() const
+{
+	if (UGameplayStatics::IsGamePaused(this))
+	{
+		return true;
+	}
+	const UWorld* World = GetWorld();
+	const UConversationSubsystem* Conversations = World ? World->GetSubsystem<UConversationSubsystem>() : nullptr;
+	return Conversations && Conversations->IsActive();
 }
 
 void USpyHUDWidget::BindCover(UCoverComponent* Cover)
@@ -215,7 +247,7 @@ void USpyHUDWidget::SetHint(const FText& Hint)
 
 void USpyHUDWidget::ShowBanner(const FText& Title, const FText& Subtitle, float Duration)
 {
-	if (BannerTimeLeft > 0.f)
+	if (BannerTimeLeft > 0.f || BannerQueue.Num() > 0 || IsBannerHeld())
 	{
 		BannerQueue.Add({ Title, Subtitle, Duration });
 		return;
@@ -272,7 +304,10 @@ void USpyHUDWidget::HandleObjectiveChanged()
 
 void USpyHUDWidget::HandleMissionStarted(UMissionAsset* Mission)
 {
-	if (Mission)
+	// A mission that still needs its briefing is introduced by the briefing panel (same title and text), so the
+	// banner would only stack on top of it
+	const UMissionSubsystem* Missions = GetMissionSubsystem();
+	if (Mission && !(Missions && Missions->NeedsBriefing(Mission)))
 	{
 		ShowBanner(Mission->Title, Mission->Briefing, 6.f);
 	}
@@ -312,8 +347,8 @@ void USpyHUDWidget::HandleMissionCompleted(UMissionAsset* Mission)
 			: LOCTEXT("HandlerDown", "\nHandler: \"I'll stay closer for a while.\" (Settings to change)").ToString();
 	}
 	ShowBanner(FText::Format(LOCTEXT("MissionCompleteGrade", "MISSION COMPLETE - GRADE {0}"), UFluencyScoring::GradeLetter(Grade.Grade)),
-		FText::Format(LOCTEXT("Debrief", "{0}\n{1}\n{2} {2}|plural(one=answer,other=answers), {3} {3}|plural(one=mistake,other=mistakes), {4} {4}|plural(one=translation,other=translations) peeked.  Best: {5}{6}"),
-			Mission->Title, Verdict, Grade.Challenges, Grade.Mistakes, Grade.Peeks, UFluencyScoring::GradeLetter(Best.Grade), FText::FromString(Extra)),
+		FText::Format(LOCTEXT("Debrief", "{0}\n{1}\n{2} {2}|plural(one=answer,other=answers), {3} {3}|plural(one=mistake,other=mistakes), {7} fixed after a hint, {4} {4}|plural(one=translation,other=translations) peeked.  Best: {5}{6}"),
+			Mission->Title, Verdict, Grade.Challenges, Grade.Mistakes, Grade.Peeks, UFluencyScoring::GradeLetter(Best.Grade), FText::FromString(Extra), Grade.Retries),
 		9.f);
 }
 

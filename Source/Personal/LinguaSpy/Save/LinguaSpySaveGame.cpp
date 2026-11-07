@@ -34,6 +34,13 @@ bool ULinguaSpySaveGame::Migrate(ULinguaSpySaveGame* Save)
 		Save->Version = 3;
 	}
 
+	// v3 -> v4: FMissionGrade gained Retries. Older best grades stored retries inside Peeks and can't be split; their
+	// grade letter (which used the sum) stays correct, so nothing is converted.
+	if (Save->Version < 4)
+	{
+		Save->Version = 4;
+	}
+
 	Save->Version = CurrentVersion;
 	return true;
 }

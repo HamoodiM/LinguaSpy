@@ -1,6 +1,7 @@
 // LinguaSpy - runs the active conversation, cover-blown practice drills, Safe house reviews and mission debriefs
 
 #include "ConversationSubsystem.h"
+#include "FluencyScoring.h"
 #include "ConversationAsset.h"
 #include "CoverComponent.h"
 #include "LanguagePackAsset.h"
@@ -68,7 +69,7 @@ bool UConversationSubsystem::BeginConversation(ANpcCharacter* Npc, UConversation
 	PracticeQueue.Reset();
 	RevealedNodes.Reset();
 	PendingFieldNotes.Reset();
-	TallyChallenges = TallyMistakes = TallyPeeks = 0;
+	TallyChallenges = TallyMistakes = TallyPeeks = TallyRetries = 0;
 	bDebrief = false;
 	Mode = EConversationMode::Conversation;
 
@@ -119,7 +120,7 @@ bool UConversationSubsystem::StartReviewSession(const TArray<FSrsItemKey>& Items
 	PendingFieldNotes.Reset();
 	ReviewTotal = PracticeQueue.Num();
 	ReviewPassed = 0;
-	TallyChallenges = TallyMistakes = TallyPeeks = 0;
+	TallyChallenges = TallyMistakes = TallyPeeks = TallyRetries = 0;
 	bDebrief = bInDebrief;
 	Mode = EConversationMode::Review;
 
@@ -206,11 +207,12 @@ int32 UConversationSubsystem::GetPeeksLeft() const
 	return FMath::Max(RadioSilencePeeks - RevealedNodes.Num(), 0);
 }
 
-void UConversationSubsystem::GetFluencyTally(int32& OutChallenges, int32& OutMistakes, int32& OutPeeks) const
+void UConversationSubsystem::GetFluencyTally(int32& OutChallenges, int32& OutMistakes, int32& OutPeeks, int32& OutRetries) const
 {
 	OutChallenges = TallyChallenges;
 	OutMistakes = TallyMistakes;
 	OutPeeks = TallyPeeks;
+	OutRetries = TallyRetries;
 }
 
 // ---- Voice ------------------------------------------------------------------------------------------------------
@@ -469,7 +471,9 @@ FAnswerFeedback UConversationSubsystem::ApplyGrade(const FGradeResult& InResult,
 	{
 		// Feedback ladder step 1: prompt (hint, part of the penalty), and the player tries again
 		Feedback.bFinal = false;
-		Feedback.Hint = UScaffoldPolicy::ChooseHint(Challenge, Result, SubmittedTokens);
+		const ULanguagePackAsset* HintLanguage = GetActiveLanguage();
+		Feedback.Hint = UScaffoldPolicy::ChooseHint(Challenge, Result, SubmittedTokens, Presentation.Level,
+			!HintLanguage || HintLanguage->bUsesWordSpacing);
 		++Presentation.Attempt;
 		++SessionErrors.FindOrAdd(KeyString);
 		if (Mode == EConversationMode::Conversation)
@@ -569,10 +573,12 @@ void UConversationSubsystem::RecordFinal(const FWordTileChallenge& Challenge, bo
 	}
 	if (Mode == EConversationMode::Conversation)
 	{
+		// A pass after a prompt leaned on the handler: it counts as help in the grade (like a peek), but it has its own
+		// bucket so the debrief doesn't report it as a "translation peeked"
 		++TallyChallenges;
-		TallyMistakes += bPassed ? 0 : 1;
-		// A pass after a prompt leaned on the handler, like a peek
-		TallyPeeks += (bPassed && Presentation.Attempt > 1) ? 1 : 0;
+		const EAnswerOutcome Outcome = UFluencyScoring::ClassifyAnswer(bPassed, Presentation.Attempt);
+		TallyMistakes += Outcome == EAnswerOutcome::Missed ? 1 : 0;
+		TallyRetries += Outcome == EAnswerOutcome::AfterHint ? 1 : 0;
 
 		if (ActiveNpc.IsValid())
 		{
@@ -828,7 +834,8 @@ void UConversationSubsystem::FinishConversation(FName Outcome)
 	const FName NpcTargetId = ActiveNpc.IsValid() ? ActiveNpc->GetMissionTargetId() : NAME_None;
 	ULearningTelemetrySubsystem::LogEvent(this, FTelemetryEvent(TEXT("conversation_end"))
 		.Str(TEXT("conversation"), GetNameSafe(ActiveConversation)).Id(TEXT("outcome"), Outcome)
-		.Int(TEXT("challenges"), TallyChallenges).Int(TEXT("mistakes"), TallyMistakes).Int(TEXT("peeks"), TallyPeeks));
+		.Int(TEXT("challenges"), TallyChallenges).Int(TEXT("mistakes"), TallyMistakes).Int(TEXT("peeks"), TallyPeeks)
+		.Int(TEXT("retries"), TallyRetries));
 	EndConversation();
 
 	// Debug conversations (no NPC) don't affect missions
@@ -859,7 +866,7 @@ void UConversationSubsystem::EndConversation()
 	{
 		if (UMissionSubsystem* Missions = GetGameInstanceSubsystem<UMissionSubsystem>(GetWorld()))
 		{
-			Missions->AddFluencyTally(TallyChallenges, TallyMistakes, TallyPeeks);
+			Missions->AddFluencyTally(TallyChallenges, TallyMistakes, TallyPeeks, TallyRetries);
 		}
 	}
 
@@ -877,7 +884,7 @@ void UConversationSubsystem::EndConversation()
 	}
 	PendingFieldNotes.Reset();
 
-	TallyChallenges = TallyMistakes = TallyPeeks = 0;
+	TallyChallenges = TallyMistakes = TallyPeeks = TallyRetries = 0;
 	RevealedNodes.Reset();
 	ReviewConversations.Reset();
 	ReviewAttempted.Reset();
