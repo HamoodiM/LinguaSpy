@@ -147,6 +147,16 @@ progress (save game), spaced-repetition practice, helper reliance scoring, optio
 - The first `shot showui` after starting PIE often captures the editor viewport — take a second shot.
 - Blender MCP: never leave the armature hidden when running `transform_apply` (it silently skips hidden objects).
 - Stacked flat slabs at the same top height z-fight (flicker) — keep water/plazas a few cm above road/sidewalk.
+- `set_collision_enabled(NO_COLLISION)` on a placed actor's component was **not saved** with the map (the Seine and
+  Tokyo lanterns kept full collision → navmesh island on the river). Use `set_collision_profile_name("NoCollision")`
+  (+ `can_ever_affect_navigation=False`) after `modify()`; `greybox_kit.place(collide=False)` does this now.
+- Complex-as-simple collision only takes effect for navigation after the mesh's simple collision is removed
+  (`StaticMeshEditorSubsystem.remove_collisions`); `set_complex_collision` does both (torii fix).
+- After editing a city map, run `BuildPaths` and wait before saving: a map saved mid-rebuild shipped an **empty
+  navmesh** to `-game` (nobody could walk in Paris).
+- Look/visual-polish tools: `Tools/Content/pp_toon_v2.py` (PP_Toon edited in place), `toon_master_v2.py`,
+  `greybox_kit.apply_look / apply_street_detail / apply_nav_fixes / apply_menu_look` (values in `cities.py`), notes in
+  `docs/Visual_Polish_Log.md`. Never re-run `build_city_map()` just to change lighting.
 - **Git LFS:** if the editor logs `Package is unloadable ... Invalid value for PACKAGE_FILE_TAG`, the working copy holds LFS
   pointer files (e.g. after `git lfs migrate`). Close the editor and run `git lfs checkout` (objects are in `.git/lfs/objects`).
 

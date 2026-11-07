@@ -3,6 +3,16 @@
 Claude keeps this list up to date. Tick items off (or delete them) when you've done them.
 
 ## Open
+- [ ] **(visual-polish branch) Reinstall the C++ toolchain, then build and test.** On 2026-11-07 Visual Studio 18 had no
+  `VC\` folder and `C:\Program Files (x86)\Windows Kits\10` was missing, so UBT stops with "Sdk: not found". The branch's
+  C++ (bug fixes 1, 4-8, look presets, camera defaults, 4 new tests) is written but **not compiled**. Install the
+  "Desktop development with C++" workload (MSVC + Windows 11 SDK), build with the editor closed, run the `LinguaSpy`
+  tests, fix any compile error. Details: `docs/Visual_Polish_Log.md` section 8.
+- [ ] **(visual-polish) Approve the city moods and outlines.** Paris gold morning, Madrid white noon, Tokyo blue dusk,
+  Rome golden hour (`cities.py` `look`, re-apply with `greybox_kit.apply_look`). Outline strength: PP_Toon
+  `DepthSensitivity` / `Thickness`. Before/after: `C:\GameDevCareer\trailers\linguaspy\polish\before_after\`.
+- [ ] **(visual-polish) 10-minute playtest of the new camera** (yaw 90, 25 m, FOV 40): click feel, occlusion fade of the
+  south row, NPCs on the south sidewalk during conversations.
 - [ ] **Play the Phase 5 learning loop in Paris with real mouse and keyboard.** Use a fresh profile: Reset progress, or start with `-PilotMode` and code `TEST-1`. Check:
   1. the briefing (study cards → quick check);
   2. the hint after a first mistake, and Repeat / Slower;
