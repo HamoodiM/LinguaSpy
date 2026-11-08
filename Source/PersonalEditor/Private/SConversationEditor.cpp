@@ -65,6 +65,7 @@ namespace
 		case EConversationNodeType::PlayerChallenge: return TEXT("REPLY");
 		case EConversationNodeType::PlayerChoice:    return TEXT("CHOICE");
 		case EConversationNodeType::End:             return TEXT("END");
+		case EConversationNodeType::IntelCheck:      return TEXT("INTEL");
 		}
 		return TEXT("?");
 	}
@@ -77,6 +78,7 @@ namespace
 		case EConversationNodeType::PlayerChallenge: return FLinearColor(0.95f, 0.78f, 0.35f);
 		case EConversationNodeType::PlayerChoice:    return FLinearColor(0.85f, 0.55f, 0.95f);
 		case EConversationNodeType::End:             return FLinearColor(0.6f, 0.9f, 0.6f);
+		case EConversationNodeType::IntelCheck:      return FLinearColor(0.95f, 0.55f, 0.5f);
 		}
 		return FLinearColor::White;
 	}

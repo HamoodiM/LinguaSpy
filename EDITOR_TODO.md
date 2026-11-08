@@ -37,13 +37,13 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
 - [ ] **Review the city scripts:** `docs/City_Scripts_Review.md` (Spanish, Japanese, Italian). Mark any lines you'd change.
 - [ ] **Look-and-feel notes:** toon band strength, outline thickness, colours, character proportions. The knobs are the `PP_Toon` material parameters and `Tools/Blender/*.py`.
 - [ ] **Editor preference:** Edit → Editor Preferences → General → Performance → uncheck **Use Less CPU when in Background** (it speeds up Claude's automated runs).
-- [ ] **Try the Conversation Editor** (Tools → LinguaSpy → Conversation Editor). It has never been visually checked.
 - [ ] **Clean up the save backups if you like.** `Saved/SaveGames/` has backups from Phase 4 testing: `*.user_backup_v1.sav` is your original, `*.user_backup_migrated_v2.sav` is the same profile migrated, and `*.phase4_test.sav` is the test profile. Your real profile has been restored as `LinguaSpyProfile.sav`.
 
 ## Decisions pending
 - [ ] **Japanese font:** the engine fallback renders fine. Optionally swap in Noto Sans JP for a nicer look.
 
 ## Done
+- Conversation Editor checked visually (2026-11-08): opens, lists all 25 conversations, shows flow + node details, validation reports no problems. IntelCheck nodes were labelled "?" in the flow list; now "INTEL".
 - [x] C++ toolchain reinstalled (VS 2022 Build Tools, MSVC 14.44, SDK 22621, .NET 4.8 SDK); visual-polish branch built, 23/23 tests pass; plural fix compiled with it (2026-11-07)
 - [x] Phase 5 plan decisions: TTS yes, French pilot, typed input yes, pilot build first (2026-10-04)
 - [x] Recompile after Phase 1 C++ drop (2026-09-29)
