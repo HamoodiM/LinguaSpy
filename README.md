@@ -39,7 +39,7 @@ real numbers once the study has run.
 ## Engineering highlights
 - **Data-driven dialogue**: branching conversation graphs and mission objective graphs as DataAssets. The C++ never contains language content. A custom **Slate conversation editor** validates the graphs.
 - **Pure, unit-tested core**: accent-aware grader for 4 languages (including unspaced Japanese chunks with romaji), scaffold policy, Leitner scheduler, fluency scoring, debrief selection and test counterbalancing. **23 automation tests** run headless.
-- **Versioned save format** (v3) with step-by-step migrations and round-trip tests.
+- **Versioned save format** (v4) with step-by-step migrations and round-trip tests.
 - **Content pipeline in Python**: scripts build every conversation, mission and city layout through the editor's Python API, and the editor tool stamps hand-edited assets so the scripts leave them alone.
 - **Procedural character pipeline**: Blender Python builds 7 stylized characters rigged to the UE5 Mannequin skeleton. It works around an FBX/Interchange root-bone scale issue by baking ×100 into the rig with unit scale 0.01.
 - **Toon rendering**: one master material with vertex colours, per-instance tint and dithered occlusion fade, plus a post-process with cel bands and depth/normal ink outlines.
