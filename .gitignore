@@ -26,3 +26,9 @@ Thumbs.db
 # Python
 __pycache__/
 *.pyc
+
+# Local working notes and tool config (kept out of the repo)
+CLAUDE.md
+HANDOFF.md
+.mcp.json
+EDITOR_TODO.md
