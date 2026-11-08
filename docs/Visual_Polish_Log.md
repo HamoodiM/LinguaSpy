@@ -105,6 +105,10 @@ Values live in `cities.py` (`CITY["look"]`), the single source of truth.
 
 (UE's `WhiteTemp` is the temperature the camera treats as white: above 6500 the image gets warmer, below it cooler.)
 
+Judgment calls left open: in Paris the low morning sun (yaw 120) puts the whole road in the south row's shade, which
+reads as "morning" but darkens the street; Tokyo is the boldest grade (deep blue); outline strength was tuned on a
+handful of stills. All are one-line changes in `cities.py` + `apply_look`.
+
 **M1, the C++ preset system (written, unbuilt).** `Source/Personal/LinguaSpy/Look/CityLook.h/.cpp`:
 `FCityLook` (plain data: sun, sky, fog, grading, DOF, `TMap<FName,float>` toon scalars + `TMap<FName,FLinearColor>`
 toon colours), `UCityLookAsset` (DataAsset, referenced from `ULanguagePackAsset::Look`), `UCityLookLibrary::BlendLooks`
@@ -164,7 +168,29 @@ via `MI_PP_Toon_MainMenu`), per-city roof colours by quadrant, warm grading. Cam
 | 7 | Japanese pick-the-sentence hint: "The phrase has 4 words" | `SubmitRecognition` grades with `SubmittedTokens = 0` and `FirstWrongIndex = 0`, so `ChooseHint` fell through to the tile-building length hint ("words" also wrong for unspaced chunk tiles). | `ChooseHint` takes the scaffold level and the language's word spacing: Recognize gets its own hint (no token hints), unspaced languages count tiles. Test `LinguaSpy.Feedback.HintLevels`. | C++, unbuilt |
 | 8 | Tally "0 mistakes, 2 translations peeked" after 1 wrong attempt + 1 peek | **Confirmed.** By design a pass after the handler's hint counts as help (it was added to `Peeks`), so the debrief reported the hint-assisted retry as a "translation peeked"; "0 mistakes" is correct (only a final miss is a mistake). | `FMissionGrade.Retries` (save v4, no-op migration step); `UFluencyScoring::ClassifyAnswer` (pure) buckets each final answer; grade = `ComputeGrade(C, M, Peeks + Retries)`, i.e. **unchanged**; debrief now reads "0 mistakes, 1 fixed after a hint, 1 translation peeked". Test `LinguaSpy.FluencyTally`. | C++, unbuilt |
 
-## 8. To finish (needs the student)
+**Found on the way (same family as bugs 2 and 3, fixed in content):**
+- *Maps saved mid-rebuild shipped broken navmeshes.* After scripted edits (markings deleted and re-added) the editor
+  rebuilds dirty nav tiles asynchronously; saving right away stored an empty (Paris) or holed (Tokyo) navmesh, and
+  `-game` used it as saved: nobody could walk in Paris. Every map now gets `BuildPaths` before saving, checked with
+  navmesh projections at NPCs, markers and crosswalks.
+- *Tokyo konbini wedge.* A street lamp in front of the konbini left an 87 cm corridor where Sato stands; the player
+  could get wedged between the lamp and Sato (outside the navmesh, blocked both ways) and never move again. Lamp
+  removed, furniture skip added in `cities.py`.
+- *Madrid "reach the palace gate".* The PalaceGate marker (y 3850) and Álvaro stood outside the NavMeshBoundsVolume
+  (±3500), so the objective had no nav path (click-to-move could not reach it). Bounds now ±4500 (`nav_depth=9000`).
+
+## 8. Trailer v2 (re-captured with the new look)
+
+`C:\GameDevCareer\trailers\linguaspy\v2\`: `LinguaSpy_trailer_v2.mp4` (92 s, 1080p60, 16 captioned shots: Paris,
+Tokyo, Madrid and Rome), `LinguaSpy_hero_loop_v2.mp4` (12 s muted), `LinguaSpy_hero_v2.gif` / `.webp`, 12 stills in
+`v2\stills\`, the edit list `edit_v2.txt` and the raw clips in `v2\raw\` (v1 files untouched). Captured with the
+existing driver (`trailers\linguaspy\tools\ls_driver.py` + `polish\tools\polish_extra.py` scenarios `v2paris`,
+`v2tokyo`, `v2madridrome`; clips go to `LS_RAW`). It is footage of **this build**, i.e. the content fixes are in it
+(new camera, looks, nav: the Tokyo torii walk is a real nav path now) but the unbuilt C++ fixes are not; shots that
+show bugs 1, 5, 7 or 8 were left out of the cut, and the briefing shot is the pause-menu copy of the briefing, opened
+after the camera is live.
+
+## 9. To finish (needs the student)
 
 1. Reinstall the **Desktop development with C++** workload in Visual Studio 2026 (MSVC 14.5x + Windows 11 SDK).
 2. Close the editor, build: `Build.bat PersonalEditor Win64 Development -Project=... -WaitMutex`. Fix any compile
