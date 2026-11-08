@@ -1,4 +1,4 @@
-# Pilot Study Protocol: LinguaSpy with MathemaTech students
+# Pilot Study Protocol: LinguaSpy with partner-organization students
 
 **Status: planned, not yet run.** Nothing in this document is a result. Results get filled in *only* from real sessions
 (section 8). Until then, the resume, README and any portfolio page describe the study as planned or in progress, never as
@@ -16,7 +16,7 @@ This is a **single-group pre/post pilot**. With no control group it can show tha
 **not** that LinguaSpy beats other methods. Say this in every write-up.
 
 ## 2. Permissions and ethics (do these first)
-- [ ] **Written permission from MathemaTech** (organizer/owner) to run the session with their students.
+- [ ] **Written permission from the partner organization** (organizer/owner) to run the session with their students.
 - [ ] **If participants are under 18:** a parent/guardian consent form plus student assent. Use plain language: what
       they'll do, that it's voluntary, that they can stop anytime, and what data is collected.
 - [ ] **If this is ever used for Carleton coursework or publication,** check with Carleton's Research Ethics Board
@@ -27,7 +27,7 @@ This is a **single-group pre/post pilot**. With no control group it can show tha
       local encrypted folder. Delete it after analysis or on request.
 
 ## 3. Participants
-- **Target:** 8–20 MathemaTech students with **no or minimal prior knowledge** of the chosen language. Screen with one
+- **Target:** 8–20 partner-organization students with **no or minimal prior knowledge** of the chosen language. Screen with one
   question plus the pre-test; exclude anyone who scores near the ceiling.
 - **Language:** one language for everyone, to keep it simple. Recommended: **French (Paris)**, the deepest content and
   most relevant in Ottawa. Alternative: Spanish (Madrid) if many already know French.
@@ -84,7 +84,7 @@ retested" make a stronger story than one perfect-sounding number.
 
 ## 9. How to describe it (by stage)
 - **Before the pilot:** "Designed a pre/post pilot study (parallel test forms, delayed retention test, SUS) with
-  in-game anonymous telemetry; pilot with MathemaTech students scheduled for [month]."
-- **After the pilot:** "Piloted with [n] MathemaTech students: mean test score rose from [x]% to [y]% (d = [z]), [w]%
+  in-game anonymous telemetry; pilot with partner-organization students scheduled for [month]."
+- **After the pilot:** "Piloted with [n] partner-organization students: mean test score rose from [x]% to [y]% (d = [z]), [w]%
   retained after one week; SUS [s]." Use only the real numbers. If results are mixed, say what you changed in response.
   Iterating on mixed results is a good interview story.

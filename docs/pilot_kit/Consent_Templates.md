@@ -1,21 +1,21 @@
 # Consent templates
 
-> **These are starting points, not legal advice.** The organizer (MathemaTech) decides what forms they need and
+> **These are starting points, not legal advice.** The organizer (the partner organization) decides what forms they need and
 > may have their own. If the results will be used for coursework or publication at Carleton, ask the Carleton
 > Research Ethics Board **before** collecting any data.
 
 ---
 
 ## 1. Permission from the organizer
-I, ______________________ (role: ______________) at MathemaTech, agree that Mohammad Mohammad may run a
-60-minute play-test of the prototype game *LinguaSpy* with MathemaTech students who choose to take part, on
+I, ______________________ (role: ______________) at the partner organization, agree that Mohammad Mohammad may run a
+60-minute play-test of the prototype game *LinguaSpy* with partner-organization students who choose to take part, on
 ____________ (date), with a 10-minute follow-up one week later.
 
 I understand that:
 - participation is voluntary;
 - only anonymous codes are recorded, never names;
 - data stays on the test laptops and the researcher's encrypted storage, and is deleted on request;
-- MathemaTech will receive a summary of the results.
+- The partner organization will receive a summary of the results.
 
 Signature: ______________________  Date: ____________
 
@@ -27,7 +27,7 @@ French. He would like to test whether it helps students learn and whether it is 
 
 **What will my child do?** Answer about 15 short French questions, play the game for about 35 minutes, answer the
 same kind of questions again, and fill in a short survey. One week later there are about 5–10 more minutes of
-questions. All of it happens during a regular MathemaTech session.
+questions. All of it happens during a regular partner-organization session.
 
 **What is recorded?**
 - The game saves an anonymous code (like MT-07), the answers given in the game and the test, and timings.

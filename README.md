@@ -62,4 +62,4 @@ docs/                        design, research, plans, logs, pilot kit, credits
 - **Pilot build:** see [`docs/pilot_kit/Laptop_Setup.md`](docs/pilot_kit/Laptop_Setup.md).
 
 ## Credits
-Audio, voices and fonts: [`docs/Credits.md`](docs/Credits.md). Built by Mohammad Mohammad (solo: design, content, code review and testing), with Claude (Anthropic) as an AI pair programmer. Every commit carries a `Co-Authored-By: Claude` line; `CLAUDE.md` is the brief it worked from.
+Audio, voices and fonts: [`docs/Credits.md`](docs/Credits.md). Designed and led by Mohammad Mohammad, using Claude Code as an AI coding assistant.

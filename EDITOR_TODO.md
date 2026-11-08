@@ -20,7 +20,7 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
 - [ ] **French content review:** the hints, briefing phrases, field notes (`Tools/Content/paris_content.py`, `paris_croissant.py`) and test items (`paris_assessment.py`). A native or fluent speaker would be ideal.
 - [ ] **Test the packaged build on another Windows PC** (`Saved/Packaged/Windows`, start with `Start LinguaSpy (Pilot).bat`). See `docs/pilot_kit/Laptop_Setup.md`.
 - [ ] **Pilot logistics (only you can do these):**
-  - written permission from MathemaTech;
+  - written permission from the partner organization;
   - parent/guardian consent if students are under 18 (templates in `docs/pilot_kit/Consent_Templates.md`);
   - if this is for Carleton coursework or publication, ask the Research Ethics Board *before* running it;
   - pick the date.
