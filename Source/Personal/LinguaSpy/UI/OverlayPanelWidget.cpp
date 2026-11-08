@@ -78,6 +78,7 @@ void UOverlayPanelWidget::NativeOnInitialized()
 void UOverlayPanelWidget::Open()
 {
 	AddToViewport(120);
+	SetIsFocusable(true); // without it SetKeyboardFocus is refused ("does not support focus" warning)
 	SetKeyboardFocus();
 }
 

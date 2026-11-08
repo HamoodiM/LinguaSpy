@@ -3,11 +3,6 @@
 Claude keeps this list up to date. Tick items off (or delete them) when you've done them.
 
 ## Open
-- [ ] **(visual-polish branch) Reinstall the C++ toolchain, then build and test.** On 2026-11-07 Visual Studio 18 had no
-  `VC\` folder and `C:\Program Files (x86)\Windows Kits\10` was missing, so UBT stops with "Sdk: not found". The branch's
-  C++ (bug fixes 1, 4-8, look presets, camera defaults, 4 new tests) is written but **not compiled**. Install the
-  "Desktop development with C++" workload (MSVC + Windows 11 SDK), build with the editor closed, run the `LinguaSpy`
-  tests, fix any compile error. Details: `docs/Visual_Polish_Log.md` section 8.
 - [ ] **(visual-polish) Approve the city moods and outlines.** Paris gold morning, Madrid white noon, Tokyo blue dusk,
   Rome golden hour (`cities.py` `look`, re-apply with `greybox_kit.apply_look`). Outline strength: PP_Toon
   `DepthSensitivity` / `Thickness`. Before/after: `C:\GameDevCareer\trailers\linguaspy\polish\before_after\`.
@@ -29,7 +24,6 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
   - parent/guardian consent if students are under 18 (templates in `docs/pilot_kit/Consent_Templates.md`);
   - if this is for Carleton coursework or publication, ask the Research Ethics Board *before* running it;
   - pick the date.
-- [ ] **Compile the plural fix.** It's in `SpyHUDWidget.cpp` and `PauseMenuWidget.cpp`, so it reads "1 mistake", not "1 mistakes". It's .cpp only: press Ctrl+Alt+F11 (Live Coding) or rebuild.
 - [ ] **Listen to the new audio.** The procedural MetaSounds are gone, replaced with CC0 samples (see `docs/Credits.md`). Claude checked loudness and brightness numerically but can't hear them. Say if anything still sounds harsh, too loud or too quiet.
   - You can adjust volumes in-game: Settings, from the menu or the P pause menu.
   - The base mix levels are in Project Settings → Game → LinguaSpy Audio.
@@ -50,6 +44,7 @@ Claude keeps this list up to date. Tick items off (or delete them) when you've d
 - [ ] **Japanese font:** the engine fallback renders fine. Optionally swap in Noto Sans JP for a nicer look.
 
 ## Done
+- [x] C++ toolchain reinstalled (VS 2022 Build Tools, MSVC 14.44, SDK 22621, .NET 4.8 SDK); visual-polish branch built, 23/23 tests pass; plural fix compiled with it (2026-11-07)
 - [x] Phase 5 plan decisions: TTS yes, French pilot, typed input yes, pilot build first (2026-10-04)
 - [x] Recompile after Phase 1 C++ drop (2026-09-29)
 - [x] Grader accent fix compiled (2026-09-29)
