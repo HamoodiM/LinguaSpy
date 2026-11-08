@@ -133,6 +133,7 @@ MADRID = dict(
     ],
     markers=[dict(id="Metro", loc=(2600, -420, 100)), dict(id="PalaceGate", loc=(0, 3850, 100))],
     pickups=[dict(id="Folder", loc=(-2050, 2400, 20))],
+    nav_depth=9000,  # the PalaceGate marker (y 3850) and Alvaro were outside the default +-3500 nav bounds
     pedestrian_meshes=PEDS,
     pedestrians=[(-2800, 550, 98), (-600, 1200, 98), (600, 2600, 98), (1200, -550, 98), (2900, 550, 98), (-1000, -550, 98)],
 )
@@ -151,7 +152,8 @@ TOKYO = dict(
     wall_tints=["F7F4EE", "E6E1EC", "F4D6DE", "D6E8EE", "F2E6C9"],
     gaps=dict(south=[(1300, 3200)]),
     row_specials=dict(north=[dict(x=-1500, mesh=f"{A}/Tokyo/SM_Tokyo_Konbini", tint="F7F4EE", label="Konbini")]),
-    furniture=dict(lamp=f"{A}/Tokyo/SM_Tokyo_Lamp", tree=f"{A}/Tokyo/SM_Tokyo_Tree", spacing=1000, skip=[(1200, 3300)]),
+    furniture=dict(lamp=f"{A}/Tokyo/SM_Tokyo_Lamp", tree=f"{A}/Tokyo/SM_Tokyo_Tree", spacing=1000,
+                   skip=[(1200, 3300), (-1300, -900)]),  # no lamp post wedging the player against Sato at the konbini
     slabs=[dict(label="ShrineGrounds", center=(2250, -1900, 3), size=(1900, 2600, 6), color="D9CFC0")],
     complex_collision=[f"{A}/Tokyo/SM_Tokyo_Torii"],  # the auto convex hull turned the gate into a solid wall
     props=[
