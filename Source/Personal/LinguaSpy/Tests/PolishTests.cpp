@@ -82,7 +82,7 @@ bool FLinguaSpyLookBlendTest::RunTest(const FString& Parameters)
 	// Sun yaw 350 -> 10 must go the short way (through 0), not swing 340 degrees through 180
 	const float MidYaw = FRotator::NormalizeAxis(Mid.SunRotation.Yaw);
 	TestTrue(TEXT("Sun rotation takes the shortest arc"), FMath::Abs(MidYaw) < 0.5f);
-	TestEqual(TEXT("Sun pitch kept"), Mid.SunRotation.Pitch, -30.f, 0.01f);
+	TestEqual(TEXT("Sun pitch kept"), Mid.SunRotation.Pitch, -30.0, 0.01);
 
 	const FCityLook Over = UCityLookLibrary::BlendLooks(A, B, 3.f);
 	TestEqual(TEXT("Alpha clamps above 1"), Over.SunIntensity, 6.f);

@@ -101,7 +101,9 @@ FGradeResult USentenceGrader::Grade(const FWordTileChallenge& Challenge, const T
 		Player.Add(NormalizeToken(Token));
 	}
 
-	int32 BestScore = -1;
+	// Lowest possible start: the length penalty can push every score below zero (1 tile of a 3-tile answer = -1),
+	// and the closest answer must still be picked so tiles are marked and the length hint can fire.
+	int32 BestScore = TNumericLimits<int32>::Lowest();
 	for (int32 AnswerIndex = 0; AnswerIndex < Challenge.AcceptedAnswers.Num(); ++AnswerIndex)
 	{
 		const TArray<FString>& Answer = Challenge.AcceptedAnswers[AnswerIndex].Tokens;
